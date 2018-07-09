@@ -45,7 +45,7 @@ class TCB(nn.Module):
     return combine
     
 
-class RefineDet_SSD(nn.Module):
+class RefineDet(nn.Module):
   """Single Shot Multibox Architecture
   The network is composed of a base VGG network followed by the
   added multibox conv layers.  Each multibox layer branches into
@@ -63,10 +63,10 @@ class RefineDet_SSD(nn.Module):
       head: "multibox head" consists of loc and conf conv layers
   """
 
-  def __init__(self, phase, size, base, extras, biclass_head,
-               back_pyramid_layers, multiclass_head,
+  def __init__(self, phase, size, base, extras, arm_head,
+               back_pyramid_layers, odm_head,
                num_classes):
-    super(RefineDet_SSD, self).__init__()
+    super(RefineDet, self).__init__()
     self.phase = phase
     self.num_classes = num_classes
     self.cfg = (coco, voc)[num_classes == 21]
@@ -83,12 +83,12 @@ class RefineDet_SSD(nn.Module):
     self.back_pyramid = nn.ModuleList(back_pyramid_layers)
     
     # for ARM, binary classification.
-    self.bi_loc = nn.ModuleList(biclass_head[0])
-    self.bi_conf = nn.ModuleList(biclass_head[1])
+    self.bi_loc = nn.ModuleList(arm_head[0])
+    self.bi_conf = nn.ModuleList(arm_head[1])
     
     # for multiple classes classification and regression
-    self.multi_loc = nn.ModuleList(multiclass_head[0])
-    self.multi_conf = nn.ModuleList(multiclass_head[1])
+    self.multi_loc = nn.ModuleList(odm_head[0])
+    self.multi_conf = nn.ModuleList(odm_head[1])
 
     if phase == 'test':
       self.bi_softmax = nn.Softmax(dim=-1)
@@ -264,6 +264,32 @@ def add_extras(cfg, i, batch_norm=False):
     return layers
 
 
+def arm_bibox(vgg, extra_layers, cfg):
+  """
+  binary classification.
+  :param vgg:
+  :param extra_layers:
+  :param cfg:
+  :return:
+      vgg, extra_layers, (loc_layers, conf_layers)
+  """
+  loc_layers = []
+  conf_layers = []
+  vgg_source = [21, -2]
+  num_classes = 2
+  for k, v in enumerate(vgg_source):
+    loc_layers += [nn.Conv2d(vgg[v].out_channels,
+                             cfg[k] * 4, kernel_size=3, padding=1)]
+    conf_layers += [nn.Conv2d(vgg[v].out_channels,
+                              cfg[k] * num_classes, kernel_size=3, padding=1)]
+  for k, v in enumerate(extra_layers[1::2], 2):
+    loc_layers += [nn.Conv2d(v.out_channels, cfg[k]
+                             * 4, kernel_size=3, padding=1)]
+    conf_layers += [nn.Conv2d(v.out_channels, cfg[k]
+                              * num_classes, kernel_size=3, padding=1)]
+  return vgg, extra_layers, (loc_layers, conf_layers)
+
+
 def odm_multibox(back_pyramid_layers, cfg, num_classes):
   """
   Multiclass
@@ -274,7 +300,6 @@ def odm_multibox(back_pyramid_layers, cfg, num_classes):
   """
   loc_layers = []
   conf_layers = []
-  # vgg_source = [21, 2]
   
   for k, v in enumerate(back_pyramid_layers):
     loc_layers += [nn.Conv2d(v.out_channels,
@@ -282,33 +307,9 @@ def odm_multibox(back_pyramid_layers, cfg, num_classes):
     conf_layers += [nn.Conv2d(v.out_channels,
                               cfg[k] * num_classes, kernel_size=3,
                               padding=1)]
-    return loc_layers, conf_layers
+  return back_pyramid_layers, (loc_layers, conf_layers)
 
-def arm_bibox(vgg, extra_layers, cfg, num_classes=2):
-  """
-  binary classification.
-  :param vgg:
-  :param extra_layers:
-  :param cfg:
-  :param num_classes:
-  :return:
-      vgg, extra_layers, (loc_layers, conf_layers)
-  """
-  loc_layers = []
-  conf_layers = []
-  vgg_source = [21, -2]
-  for k, v in enumerate(vgg_source):
-    loc_layers += [nn.Conv2d(vgg[v].out_channels,
-                             cfg[k] * 4, kernel_size=3, padding=1)]
-    conf_layers += [nn.Conv2d(vgg[v].out_channels,
-                      cfg[k] * num_classes, kernel_size=3, padding=1)]
-  for k, v in enumerate(extra_layers[1::2], 2):
-    loc_layers += [nn.Conv2d(v.out_channels, cfg[k]
-                             * 4, kernel_size=3, padding=1)]
-    conf_layers += [nn.Conv2d(v.out_channels, cfg[k]
-                              * num_classes, kernel_size=3, padding=1)]
-  return vgg, extra_layers, (loc_layers, conf_layers)
-  
+
 
 # from down to up
 def add_back_pyramid(cfg):
@@ -345,7 +346,7 @@ mbox = {
 }
 
 
-def build_ssd(phase, size=300, num_classes=21):
+def build_refinedet(phase, size=300, num_classes=21):
     if phase != "test" and phase != "train":
         print("ERROR: Phase: " + phase + " not recognized")
         return
@@ -353,7 +354,13 @@ def build_ssd(phase, size=300, num_classes=21):
         print("ERROR: You specified size " + repr(size) + ". However, " +
               "currently only SSD300 (size=300) is supported!")
         return
-    base_, extras_, head_ = multibox(vgg(base[str(size)], 3),
-                                     add_extras(extras[str(size)], 1024),
-                                     mbox[str(size)], num_classes)
-    return SSD(phase, size, base_, extras_, head_, num_classes)
+    base_, extras_, arm_head_ = arm_bibox(vgg(base[str(size)], 3),
+                                          add_extras(extras[str(size)], 1024),
+                                          mbox[str(size)])
+    back_pyramid_layers_, odm_head_ = odm_multibox(
+      add_back_pyramid(back_pyramid[str(size)]),
+      back_pyramid[str(size)],
+      num_classes)
+
+    return RefineDet(phase, size, base_, extras_, arm_head_,
+                     back_pyramid_layers_, odm_head_, num_classes)
