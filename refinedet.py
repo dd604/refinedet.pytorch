@@ -69,7 +69,7 @@ class RefineDet(nn.Module):
 
   def __init__(self, phase, size, base, key_ids, extras, arm_head,
                back_pyramid_layers, odm_head,
-               num_classes):
+               num_classes, priors_refine_threshold=0):
     super(RefineDet, self).__init__()
     self.phase = phase
     self.num_classes = num_classes
@@ -98,13 +98,11 @@ class RefineDet(nn.Module):
     self.multi_loc = nn.ModuleList(odm_head[0])
     self.multi_conf = nn.ModuleList(odm_head[1])
     # pdb.set_trace()
-    
+    self.prior_threshold = prior_threshold
     if phase == 'test':
-      self.bi_softmax = nn.Softmax(dim=-1)
-      self.bi_detect = Detect(2, 0, 200, 0.01, 0.45)
-      
-      self.multi_softmax = nn.Softmax(dim=-1)
-      self.multi_detect = Detect(num_classes, 0, 200, 0.01, 0.45)
+      self.softmax = nn.Softmax(dim=-1)
+      self.detect = Detect(self.num_classes, 0, 200,
+                           self.priors_refine_threshold, 0.01, 0.45)
 
   def forward(self, x):
     """Applies network layers and ops on input image(s) x.
@@ -129,8 +127,11 @@ class RefineDet(nn.Module):
     
     arm_source, bi_output, priors = self._arm(x)
     multi_output = self._odm(arm_source)
-    
-    return bi_output, multi_output, priors
+    if self.phase == 'test':
+      return self.detect(bi_output[0], bi_output[1], multi_output[0],
+                  multi_output[1], priors)
+    else:
+      return bi_output, multi_output, priors
   
   def _arm(self, x):
     # arm, anchor refinement moduel
@@ -175,17 +176,8 @@ class RefineDet(nn.Module):
     bi_conf_pred = torch.cat([o.view(o.size(0), -1)
                               for o in bi_conf_pred], 1)
 
-    if self.phase == "test":
-      bi_output = self.detect(
-        bi_loc_pred.view(bi_loc_pred.size(0), -1, 4),
-        self.softmax(bi_loc_pred.view(bi_conf_pred.size(0), -1, 2)),
-        self.priors.type(type(x.data))
-      )
-    else:
-      bi_output = (
-        bi_loc_pred.view(bi_loc_pred.size(0), -1, 4),
-        bi_conf_pred.view(bi_conf_pred.size(0), -1, 2),
-      )
+    bi_output = (bi_loc_pred.view(bi_loc_pred.size(0), -1, 4),
+      bi_conf_pred.view(bi_conf_pred.size(0), -1, 2))
     
     return arm_sources, bi_output, self.priors
   
@@ -196,7 +188,7 @@ class RefineDet(nn.Module):
     multi_conf_pred = list()
     
     # pdb.set_trace()
-    print([cur.size() for cur in arm_sources])
+    # print([cur.size() for cur in arm_sources])
     # for odm
     for k in range(len(arm_sources)-1, -1, -1):
       if k == (len(arm_sources) - 1):
@@ -208,32 +200,23 @@ class RefineDet(nn.Module):
                                                 arm_sources[k + 1],
                                                 is_deconv=True))
     odm_sources.reverse()
-    print([cur.size() for cur in odm_sources])
+    # print([cur.size() for cur in odm_sources])
     # pdb.set_trace()
     for (x, l, c) in zip(odm_sources, self.multi_loc, self.multi_conf):
-      print(l(x).size())
-      print(c(x).size())
+      # print(l(x).size())
+      # print(c(x).size())
       multi_loc_pred.append(l(x).permute(0, 2, 3, 1).contiguous())
       multi_conf_pred.append(c(x).permute(0, 2, 3, 1).contiguous())
-      print(multi_loc_pred[-1].size())
-      print(multi_conf_pred[-1].size())
+      # print(multi_loc_pred[-1].size())
+      # print(multi_conf_pred[-1].size())
     multi_loc_pred = torch.cat([o.view(o.size(0), -1)
                                 for o in multi_loc_pred], 1)
     multi_conf_pred = torch.cat([o.view(o.size(0), -1)
                                  for o in multi_conf_pred], 1)
   
-    if self.phase == "test":
-      multi_output = self.detect(
-        multi_loc_pred.view(multi_loc_pred.size(0), -1, 4),
-        self.softmax(multi_conf_pred.view(multi_conf_pred.size(0), -1,
-                                          self.num_classes)),
-        self.priors.type(type(x.data))
-      )
-    else:
-      multi_output = (
-        multi_loc_pred.view(multi_loc_pred.size(0), -1, 4),
-        multi_conf_pred.view(multi_conf_pred.size(0), -1, self.num_classes),
-      )
+    
+    multi_output = (multi_loc_pred.view(multi_loc_pred.size(0), -1, 4),
+      multi_conf_pred.view(multi_conf_pred.size(0), -1, self.num_classes),)
     
     return multi_output
   
@@ -371,8 +354,7 @@ def add_back_pyramid(cfg):
       layers += [TCB(cfg[k], cfg[k])]
     else:
       layers += [TCB(cfg[k], cfg[k+1])]
-
-  
+      
   return layers
 
 ###

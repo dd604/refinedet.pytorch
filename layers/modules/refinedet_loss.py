@@ -188,8 +188,9 @@ class MultiBoxLoss(nn.Module):
         """
         # tensor
         arm_loc_data = bi_prediction[0].data
-        # soft max score
-        arm_conf_data = F.softmax(bi_prediction[1], -1).data
+        # no soft max score
+        arm_conf_data = bi_prediction[1].data
+        # arm_conf_data = F.softmax(bi_prediction[1], -1).data
         # variable
         loc_data, conf_data = multi_prediction
         num = loc_data.size(0)
@@ -205,7 +206,7 @@ class MultiBoxLoss(nn.Module):
         
         tmp_loc_t = torch.Tensor(num_priors, 4)
         tmp_conf_t = torch.Tensor(num_priors)
-        pdb.set_trace()
+        # pdb.set_trace()
         for idx in range(num):
             truths = targets[idx][:, :-1].data
             labels = targets[idx][:, -1].data
@@ -213,11 +214,11 @@ class MultiBoxLoss(nn.Module):
             # use confidence data of arm
             cur_priors = refined_priors[idx]
             # softmax arm_conf_data[idx].
-            arm_scores = arm_conf_data[idx, :, 1]
+            arm_negative_scores = arm_conf_data[idx, :, 0]
             
-            flag = arm_scores > self.priors_refine_threshold
-            index = torch.nonzero(flag)[:, 0]
-            print(index.size())
+            ignore_flag = arm_negative_scores > self.priors_refine_threshold
+            index = torch.nonzero(1 - ignore_flag)[:, 0]
+            # print(index.size())
             used_priors = cur_priors[index, :]
             # used_priors = cur_priors.index_select(0, index)
             used_loc_t, used_conf_t = match_and_encode(self.threshold, truths,
@@ -257,7 +258,7 @@ class MultiBoxLoss(nn.Module):
         # conf_t must be in range [0, classes]
         ignore = conf_t == -1
         conf_t[ignore] = 0
-        pdb.set_trace()
+        # pdb.set_trace()
         loss_c = log_sum_exp(batch_conf) - batch_conf.gather(1, conf_t.view(-1, 1))
         
         # (num, num_priors)

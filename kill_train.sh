@@ -1,1 +1,1 @@
-ps -ef | grep train.py | grep -v grep | awk '{print $2}'|xargs kill -9
+ps -ef | grep train_refinedet.py | grep -v grep | awk '{print $2}'|xargs kill -9

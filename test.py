@@ -10,8 +10,10 @@ from torch.autograd import Variable
 from data import VOC_ROOT, VOC_CLASSES as labelmap
 from PIL import Image
 from data import VOCAnnotationTransform, VOCDetection, BaseTransform, VOC_CLASSES
+from data import COCO_ROOT, COCO_CLASSES
+
 import torch.utils.data as data
-from ssd import build_ssd
+from ssd import build_refinedet
 
 parser = argparse.ArgumentParser(description='Single Shot MultiBox Detection')
 parser.add_argument('--trained_model', default='weights/ssd_300_VOC0712.pth',
@@ -79,7 +81,7 @@ def test_net(save_folder, net, cuda, testset, transform, thresh):
 def test_voc():
     # load net
     num_classes = len(VOC_CLASSES) + 1 # +1 background
-    net = build_ssd('test', 300, num_classes) # initialize SSD
+    net = build_refinedet('test', 320, num_classes) # initialize SSD
     net.load_state_dict(torch.load(args.trained_model))
     net.eval()
     print('Finished loading model!')
@@ -93,5 +95,22 @@ def test_voc():
              BaseTransform(net.size, (104, 117, 123)),
              thresh=args.visual_threshold)
 
+def test_coco():
+    # load net
+    num_classes = len(COCO_CLASSES) + 1  # +1 background
+    net = build_refinedet('test', 320, num_classes)  # initialize SSD
+    net.load_state_dict(torch.load(args.trained_model))
+    net.eval()
+    print('Finished loading model!')
+    # load data
+    testset = VOCDetection(args.voc_root, [('2007', 'test')], None, VOCAnnotationTransform())
+    if args.cuda:
+      net = net.cuda()
+      cudnn.benchmark = True
+    # evaluation
+    test_net(args.save_folder, net, args.cuda, testset,
+             BaseTransform(net.size, (104, 117, 123)),
+             thresh=args.visual_threshold)
+  
 if __name__ == '__main__':
     test_voc()

@@ -10,10 +10,12 @@ class Detect(Function):
     scores and threshold to a top_k number of output predictions for both
     confidence score and locations.
     """
-    def __init__(self, num_classes, bkg_label, top_k, conf_thresh, nms_thresh):
+    def __init__(self, num_classes, bkg_label, top_k, prior_threshold,
+                 conf_thresh, nms_thresh):
         self.num_classes = num_classes
         self.background_label = bkg_label
         self.top_k = top_k
+        self.prior_threshold = prior_threshold
         # Parameters used in nms.
         self.nms_thresh = nms_thresh
         if nms_thresh <= 0:
@@ -21,35 +23,45 @@ class Detect(Function):
         self.conf_thresh = conf_thresh
         self.variance = cfg['variance']
 
-    def forward(self, loc_data, conf_data, prior_data):
+    def forward(self, bi_loc_data, bi_conf_data, multi_loc_data,
+                multi_conf_data, prior_data):
         """
         Args:
-            loc_data: (tensor) Loc preds from loc layers
+            bi_loc_data: (tensor) binary location preds from loc layers
                 Shape: [batch,num_priors*4]
-            conf_data: (tensor) Shape: Conf preds from conf layers
+            bi_conf_data: (tensor) Shape: Conf preds from conf layers
                 Shape: [batch*num_priors,num_classes]
             prior_data: (tensor) Prior boxes and variances from priorbox layers
                 Shape: [1,num_priors,4]
         """
-        num = loc_data.size(0)  # batch size
+        num = bi_loc_data.size(0)  # batch size
         num_priors = prior_data.size(0)
         output = torch.zeros(num, self.num_classes, self.top_k, 5)
-        conf_preds = conf_data.view(num, num_priors,
-                                    self.num_classes).transpose(2, 1)
-
+        bi_conf_preds = bi_conf_data.view(num, num_priors, 2)
+        multi_conf_preds = multi_conf_data.view(num, num_priors,
+                                                self.num_classes)
+        
+        # select
         # Decode predictions into bboxes.
         for i in range(num):
-            decoded_boxes = decode(loc_data[i], prior_data, self.variance)
             # For each class, perform nms
-            conf_scores = conf_preds[i].clone()
-
+            bi_conf_scores = bi_conf_preds[i].clone()
+            ignore_flag = bi_conf_scores[:, 0] > self.prior_threshold
+            index = torch.nonzero(1 - ignore_flag)[:, 0]
+            # decoded boxes
+            arm_boxes = decode(bi_loc_data[i][index, :],
+                               prior_data[index, :], self.variance)
+            odm_boxes = decode(multi_loc_data[i][index, :],
+                               arm_boxes, self.variance)
+            multi_conf_scores = multi_conf_preds[i][index, :].clone()
+            
             for cl in range(1, self.num_classes):
-                c_mask = conf_scores[cl].gt(self.conf_thresh)
-                scores = conf_scores[cl][c_mask]
+                c_mask = multi_conf_scores[cl].gt(self.conf_thresh)
+                scores = multi_conf_scores[cl][c_mask]
                 if scores.dim() == 0:
                     continue
-                l_mask = c_mask.unsqueeze(1).expand_as(decoded_boxes)
-                boxes = decoded_boxes[l_mask].view(-1, 4)
+                l_mask = c_mask.unsqueeze(1).expand_as(odm_boxes)
+                boxes = odm_boxes[l_mask].view(-1, 4)
                 # idx of highest scoring and non-overlapping boxes per class
                 ids, count = nms(boxes, scores, self.nms_thresh, self.top_k)
                 output[i, cl, :count] = \
