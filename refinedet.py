@@ -4,6 +4,8 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 from layers import *
 from data import voc, coco
+# from config import COCO320_CFG, COCO512_CFG
+# from data.config import COCO320_CFG, COCO512_CFG
 import os
 
 import pdb
@@ -98,11 +100,11 @@ class RefineDet(nn.Module):
     self.multi_loc = nn.ModuleList(odm_head[0])
     self.multi_conf = nn.ModuleList(odm_head[1])
     # pdb.set_trace()
-    self.prior_threshold = prior_threshold
+    self.prior_threshold = priors_refine_threshold
     if phase == 'test':
       self.softmax = nn.Softmax(dim=-1)
       self.detect = Detect(self.num_classes, 0, 200,
-                           self.priors_refine_threshold, 0.01, 0.45)
+                           self.prior_threshold, 0.01, 0.45)
 
   def forward(self, x):
     """Applies network layers and ops on input image(s) x.
@@ -128,8 +130,9 @@ class RefineDet(nn.Module):
     arm_source, bi_output, priors = self._arm(x)
     multi_output = self._odm(arm_source)
     if self.phase == 'test':
-      return self.detect(bi_output[0], bi_output[1], multi_output[0],
-                  multi_output[1], priors)
+      return self.detect(bi_output[0], bi_output[1], multi_output[0], \
+                self.softmax(multi_output[1].view(multi_output[1].size(0),
+                                        -1, self.num_classes)), priors)
     else:
       return bi_output, multi_output, priors
   
@@ -145,14 +148,16 @@ class RefineDet(nn.Module):
     # apply vgg upto conv4_3
     for k in range(pool4):
       x = self.vgg[k](x)
-    s = self.L2Norm_conv4_3(x)
-    arm_sources.append(s)
+    # s = self.L2Norm_conv4_3(x)
+    # arm_sources.append(s)
+    arm_sources.append(x)
     
     # apply vgg upto conv5_3 after relu
     for k in range(pool4, pool5):
       x = self.vgg[k](x)
-    s = self.L2Norm_conv5_3(x)
-    arm_sources.append(s)
+    # s = self.L2Norm_conv5_3(x)
+    # arm_sources.append(s)
+    arm_sources.append(x)
     
     # apply vgg up to conv_fc7
     for k in range(pool5, self.vgg_key_ids[2] + 1):
@@ -407,13 +412,9 @@ back_pyramid = {
     '512': [],
 }
 
-mbox = {
-    '320': [4, 4, 4, 4],  # number of boxes per feature map location
-    '512': [],
-}
 
-
-def build_refinedet(phase, size=320, num_classes=21):
+def build_refinedet(phase, cfg, size=320, num_classes=21,
+                    negative_prior_threshold=0.99):
     if phase != "test" and phase != "train":
         print("ERROR: Phase: " + phase + " not recognized")
         return
@@ -421,14 +422,16 @@ def build_refinedet(phase, size=320, num_classes=21):
         print("ERROR: You specified size " + repr(size) + ". However, " +
               "currently only SSD320 (size=320) is supported!")
         return
+
     vgg_layers, key_ids = vgg(base[str(size)], 3)
     base_, extras_, arm_head_ = arm_bibox(vgg_layers, key_ids,
                                           add_extras(extras[str(size)], 1024),
-                                          mbox[str(size)])
+                                          cfg['mbox'])
     back_pyramid_layers_, odm_head_ = odm_multibox(
       add_back_pyramid(back_pyramid[str(size)]),
-      mbox[str(size)],
+      cfg['mbox'],
       num_classes)
     # pdb.set_trace()
     return RefineDet(phase, size, base_, key_ids, extras_, arm_head_,
-                     back_pyramid_layers_, odm_head_, num_classes)
+                     back_pyramid_layers_, odm_head_, num_classes,
+                     negative_prior_threshold)

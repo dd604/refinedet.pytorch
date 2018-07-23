@@ -1,5 +1,6 @@
 import torch
-from torch.autograd import Function
+from torch.autograd import Function, Variable
+import torch.nn.functional as functional
 from ..box_utils import decode, nms
 from data import voc as cfg
 
@@ -34,18 +35,25 @@ class Detect(Function):
             prior_data: (tensor) Prior boxes and variances from priorbox layers
                 Shape: [1,num_priors,4]
         """
+        # import pdb
+        # pdb.set_trace()
         num = bi_loc_data.size(0)  # batch size
         num_priors = prior_data.size(0)
         output = torch.zeros(num, self.num_classes, self.top_k, 5)
         bi_conf_preds = bi_conf_data.view(num, num_priors, 2)
         multi_conf_preds = multi_conf_data.view(num, num_priors,
                                                 self.num_classes)
-        
+        bi_conf_preds_variable = Variable(bi_conf_preds, requires_grad=True)
         # select
         # Decode predictions into bboxes.
         for i in range(num):
             # For each class, perform nms
-            bi_conf_scores = bi_conf_preds[i].clone()
+            # softmax
+            # import pdb
+            # pdb.set_trace()
+            # print(type(bi_conf_preds_variable))
+            bi_conf_scores = functional.softmax(bi_conf_preds_variable[i],
+                                                dim=-1).data.clone()
             ignore_flag = bi_conf_scores[:, 0] > self.prior_threshold
             index = torch.nonzero(1 - ignore_flag)[:, 0]
             # decoded boxes
@@ -53,8 +61,10 @@ class Detect(Function):
                                prior_data[index, :], self.variance)
             odm_boxes = decode(multi_loc_data[i][index, :],
                                arm_boxes, self.variance)
-            multi_conf_scores = multi_conf_preds[i][index, :].clone()
+            multi_conf_scores = multi_conf_preds[i][index, :].clone().\
+              transpose(1, 0)
             
+            # pdb.set_trace()
             for cl in range(1, self.num_classes):
                 c_mask = multi_conf_scores[cl].gt(self.conf_thresh)
                 scores = multi_conf_scores[cl][c_mask]

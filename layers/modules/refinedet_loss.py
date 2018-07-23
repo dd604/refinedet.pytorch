@@ -189,8 +189,8 @@ class MultiBoxLoss(nn.Module):
         # tensor
         arm_loc_data = bi_prediction[0].data
         # no soft max score
-        arm_conf_data = bi_prediction[1].data
-        # arm_conf_data = F.softmax(bi_prediction[1], -1).data
+        # arm_conf_data = bi_prediction[1].data
+        arm_conf_data = F.softmax(bi_prediction[1], -1).data
         # variable
         loc_data, conf_data = multi_prediction
         num = loc_data.size(0)
@@ -221,9 +221,11 @@ class MultiBoxLoss(nn.Module):
             # print(index.size())
             used_priors = cur_priors[index, :]
             # used_priors = cur_priors.index_select(0, index)
+            # import pdb
+            # pdb.set_trace()
+            
             used_loc_t, used_conf_t = match_and_encode(self.threshold, truths,
-                                                       used_priors, self.variance,
-                                                       labels)
+                used_priors, self.variance, labels)
             # unmap
             tmp_loc_t.fill_(0)
             tmp_conf_t.fill_(-1)

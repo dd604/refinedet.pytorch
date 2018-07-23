@@ -98,7 +98,12 @@ def train():
         import visdom
         viz = visdom.Visdom()
     # train
-    refinedet = build_refinedet('train', cfg['min_dim'], cfg['num_classes'])
+    # positive > this
+    # objectness_threshold = 0.01
+    negative_prior_threshold = 0.99
+    refinedet = build_refinedet('train', cfg, cfg['min_dim'],
+                                cfg['num_classes'],
+                                negative_prior_threshold)
     net = refinedet
     if args.cuda:
         # refinedet = refinedet.cuda(device_ids)
@@ -127,12 +132,13 @@ def train():
         refinedet.back_pyramid.apply(weights_init)
         refinedet.multi_loc.apply(weights_init)
         refinedet.multi_conf.apply(weights_init)
+    
 
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
                           weight_decay=args.weight_decay)
     bi_criterion = BiBoxLoss(0.5, True, 0, True, 3, 0.5, args.cuda)
     multi_criterion = MultiBoxLoss(cfg['num_classes'], 0.5, True, 0, True,
-                                   3, 0.5, 0.6, args.cuda)
+                                   3, 0.5, negative_prior_threshold, args.cuda)
 
     net.train()
     # loss counters

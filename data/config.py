@@ -29,15 +29,18 @@ voc = {
 #
 coco = {
     'num_classes': 81,
-    'lr_steps': (280000, 360000, 400000),
-    'max_iter': 400000,
-    'feature_maps': [40, 20, 10, 5],
-    'min_dim': 320,
-    'steps': [8, 16, 32, 64],
-    'min_sizes': [21, 45, 99, 153],
-    'max_sizes': [45, 99, 153, 207],
+    'lr_steps': (280000, 360000, 400000), # ok
+    'max_iter': 400000, # ok
+    'feature_maps': [40, 20, 10, 5], # ok
+    'min_dim': 320, # ok
+    'steps': [8, 16, 32, 64], # ok
+    'min_sizes': [32, 64, 128, 256],
+    'max_sizes': [],
     'aspect_ratios': [[2], [2], [2], [2]],
+    'mbox': [3, 3, 3, 3],  # number of boxes per feature map location
+    # 'variance': [0.1, 0.1, 0.2, 0.2],
     'variance': [0.1, 0.2],
-    'clip': True,
+    'clip': False,
     'name': 'COCO',
 }
+
