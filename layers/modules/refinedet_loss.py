@@ -158,7 +158,7 @@ class MultiBoxLoss(nn.Module):
 
     def __init__(self, num_classes, overlap_thresh, prior_for_matching,
                  bkg_label, neg_mining, neg_pos, neg_overlap,
-                 priors_refine_threshold,
+                 negative_prior_threshold,
                  use_gpu=True):
         super(MultiBoxLoss, self).__init__()
         self.use_gpu = use_gpu
@@ -166,7 +166,7 @@ class MultiBoxLoss(nn.Module):
         self.threshold = overlap_thresh
         self.background_label = bkg_label
         self.use_prior_for_matching = prior_for_matching
-        self.priors_refine_threshold = priors_refine_threshold
+        self.negative_prior_threshold = negative_prior_threshold
         self.do_neg_mining = neg_mining
         self.negpos_ratio = neg_pos
         self.neg_overlap = neg_overlap
@@ -193,6 +193,7 @@ class MultiBoxLoss(nn.Module):
         arm_loc_data = bi_prediction[0].data
         # no soft max score
         # arm_conf_data = bi_prediction[1].data
+        # softmax
         arm_conf_data = F.softmax(bi_prediction[1], -1).data
         # variable
         loc_data, conf_data = multi_prediction
@@ -219,7 +220,7 @@ class MultiBoxLoss(nn.Module):
             # softmax arm_conf_data[idx].
             arm_negative_scores = arm_conf_data[idx, :, 0]
             
-            ignore_flag = arm_negative_scores > self.priors_refine_threshold
+            ignore_flag = arm_negative_scores > self.negative_prior_threshold
             index = torch.nonzero(1 - ignore_flag)[:, 0]
             # print(index.size())
             used_priors = cur_priors[index, :]

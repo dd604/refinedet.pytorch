@@ -71,7 +71,7 @@ class RefineDet(nn.Module):
 
   def __init__(self, phase, size, base, key_ids, extras, arm_head,
                back_pyramid_layers, odm_head,
-               num_classes, priors_refine_threshold=0):
+               num_classes, negative_prior_threshold=0.99):
     super(RefineDet, self).__init__()
     self.phase = phase
     self.num_classes = num_classes
@@ -83,6 +83,7 @@ class RefineDet(nn.Module):
     self.size = size
 
     # SSD network
+    
     self.vgg = nn.ModuleList(base)
     self.vgg_key_ids = key_ids
     # Layer learns to scale the l2 normalized features from conv4_3
@@ -100,11 +101,11 @@ class RefineDet(nn.Module):
     self.multi_loc = nn.ModuleList(odm_head[0])
     self.multi_conf = nn.ModuleList(odm_head[1])
     # pdb.set_trace()
-    self.prior_threshold = priors_refine_threshold
+    self.negative_prior_threshold = negative_prior_threshold
     if phase == 'test':
       self.softmax = nn.Softmax(dim=-1)
       self.detect = Detect(self.num_classes, 0, 200,
-                           self.prior_threshold, 0.01, 0.45)
+                           self.negative_prior_threshold, 0.01, 0.45)
 
   def forward(self, x):
     """Applies network layers and ops on input image(s) x.
@@ -247,6 +248,7 @@ def vgg(cfg, i, batch_norm=False):
   # index from 0
   # conv4_3, 22
   # conv5_3, 29; pool5, 30
+  # to 30 ['M']
   for v in cfg[:-2]:
     if v == 'M':
       layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
@@ -266,6 +268,7 @@ def vgg(cfg, i, batch_norm=False):
   dilation = 3
   kernel_size = 3
   padding = int((kernel_size + (dilation - 1) * (kernel_size - 1)) - 1) / 2
+  # cfg[-3] == 'M'
   conv_fc6 = nn.Conv2d(cfg[-4], cfg[-2], kernel_size=kernel_size, padding=padding,
                        dilation=dilation)
   conv_fc7 = nn.Conv2d(cfg[-2], cfg[-1], kernel_size=1)
@@ -284,7 +287,7 @@ def add_extras(cfg, i, batch_norm=False):
   in_channels = i
   # conv6_1 and conv6_2
   for k, v in enumerate(cfg):
-    if (k % 2 == 0):
+    if (k == 0):
       conv2d = nn.Conv2d(in_channels, v, kernel_size=1, stride=1, padding=0)
       if batch_norm:
         layers += [conv2d, nn.BatchNorm2d(v), nn.ReLU(inplace=True)]
@@ -320,7 +323,7 @@ def arm_bibox(vgg, vgg_key_ids, extra_layers, priors_cfg):
     conf_layers += [nn.Conv2d(vgg[v-1].out_channels,
                               priors_cfg[k] * num_classes, kernel_size=3, padding=1)]
   
-  # for k, v in enumerate(extra_layers[1::2], 2):
+  # relu has no 'out_channels' attribution.
   loc_layers += [nn.Conv2d(extra_layers[-2].out_channels, priors_cfg[-1]
                            * 4, kernel_size=3, padding=1)]
   conf_layers += [nn.Conv2d(extra_layers[-2].out_channels, priors_cfg[-1]
@@ -342,6 +345,7 @@ def odm_multibox(back_pyramid_layers, priors_cfg, num_classes):
   conf_layers = []
   # pdb.set_trace()
   for k, v in enumerate(back_pyramid_layers):
+    # why this has out_channels ?
     loc_layers += [nn.Conv2d(v.out_channels,
                              priors_cfg[k] * 4, kernel_size=3, padding=1)]
     conf_layers += [nn.Conv2d(v.out_channels,
@@ -383,7 +387,9 @@ def add_back_pyramid(cfg):
 #              'pool5': 30,
 #              }
 
-
+# 1024
+# conv_fc6 with dilation
+# conv_fc7
 base = {
     '320': [64, 64, 'M',
             128, 128, 'M',
@@ -391,7 +397,13 @@ base = {
             512, 512, 512, 'M',
             512, 512, 512, 'M',
             1024, 1024],
-    '512': [],
+    
+    '512': [64, 64, 'M',
+            128, 128, 'M',
+            256, 256, 256, 'M',
+            512, 512, 512, 'M',
+            512, 512, 512, 'M',
+            1024, 1024],
 }
 
 # after conv_fc7
@@ -399,7 +411,7 @@ base = {
 extras = {
     '320': [256, 512],
     # '320': [256, 'S', 512, 128, 'S', 256, 128, 256, 128, 256],
-    '512': [],
+    '512': [256, 512],
 }
 
 # conv4_3
@@ -409,7 +421,7 @@ extras = {
 
 back_pyramid = {
     '320': [512, 512, 1024, 512],
-    '512': [],
+    '512': [512, 512, 1024, 512],
 }
 
 
@@ -425,8 +437,8 @@ def build_refinedet(phase, cfg, size=320, num_classes=21,
 
     vgg_layers, key_ids = vgg(base[str(size)], 3)
     base_, extras_, arm_head_ = arm_bibox(vgg_layers, key_ids,
-                                          add_extras(extras[str(size)], 1024),
-                                          cfg['mbox'])
+        add_extras(extras[str(size)], base[str(size)][-1]), cfg['mbox'])
+    
     back_pyramid_layers_, odm_head_ = odm_multibox(
       add_back_pyramid(back_pyramid[str(size)]),
       cfg['mbox'],

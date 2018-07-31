@@ -40,7 +40,7 @@ coco = {
     'mbox': [3, 3, 3, 3],  # number of boxes per feature map location
     # 'variance': [0.1, 0.1, 0.2, 0.2],
     'variance': [0.1, 0.2],
-    'clip': False,
+    'clip': True,
     'name': 'COCO',
 }
 

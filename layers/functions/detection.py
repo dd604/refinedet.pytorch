@@ -3,6 +3,7 @@ from torch.autograd import Function, Variable
 import torch.nn.functional as functional
 from ..box_utils import decode, nms
 from data import voc as cfg
+import pdb
 
 
 class Detect(Function):
@@ -13,6 +14,10 @@ class Detect(Function):
     """
     def __init__(self, num_classes, bkg_label, top_k, prior_threshold,
                  conf_thresh, nms_thresh):
+        """
+        prior_threshold: to filter negatives, tipically 0.99
+        conf_thresh: for results
+        """
         self.num_classes = num_classes
         self.background_label = bkg_label
         self.top_k = top_k
@@ -43,19 +48,22 @@ class Detect(Function):
         bi_conf_preds = bi_conf_data.view(num, num_priors, 2)
         multi_conf_preds = multi_conf_data.view(num, num_priors,
                                                 self.num_classes)
-        bi_conf_preds_variable = Variable(bi_conf_preds, requires_grad=True)
+        bi_conf_preds_variable = Variable(bi_conf_preds, requires_grad=False)
         # select
         # Decode predictions into bboxes.
         for i in range(num):
             # For each class, perform nms
             # softmax
-            # import pdb
-            # pdb.set_trace()
+            # 
+#             pdb.set_trace()
             # print(type(bi_conf_preds_variable))
             bi_conf_scores = functional.softmax(bi_conf_preds_variable[i],
                                                 dim=-1).data.clone()
-            ignore_flag = bi_conf_scores[:, 0] > self.prior_threshold
-            index = torch.nonzero(1 - ignore_flag)[:, 0]
+            # ignore priors whose negative score is big
+#             ignore_flag = bi_conf_scores[:, 0] > self.prior_threshold
+#             index = torch.nonzero(1 - ignore_flag)[:, 0]
+            flag = bi_conf_scores[:, 1] >= (1 - self.prior_threshold)
+            index = torch.nonzero(flag)[:, 0]
             # decoded boxes
             arm_boxes = decode(bi_loc_data[i][index, :],
                                prior_data[index, :], self.variance)
