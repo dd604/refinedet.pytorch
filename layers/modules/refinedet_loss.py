@@ -187,6 +187,9 @@ class MultiBoxLoss(nn.Module):
                 shape: [batch_size,num_objs,5] (last idx is the label).
         """
         # tensor
+        # import pdb
+        # pdb.set_trace()
+        
         arm_loc_data = bi_prediction[0].data
         # no soft max score
         # arm_conf_data = bi_prediction[1].data

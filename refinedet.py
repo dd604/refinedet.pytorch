@@ -148,16 +148,16 @@ class RefineDet(nn.Module):
     # apply vgg upto conv4_3
     for k in range(pool4):
       x = self.vgg[k](x)
-    # s = self.L2Norm_conv4_3(x)
-    # arm_sources.append(s)
-    arm_sources.append(x)
+    s = self.L2Norm_conv4_3(x)
+    arm_sources.append(s)
+    # arm_sources.append(x)
     
     # apply vgg upto conv5_3 after relu
     for k in range(pool4, pool5):
       x = self.vgg[k](x)
-    # s = self.L2Norm_conv5_3(x)
-    # arm_sources.append(s)
-    arm_sources.append(x)
+    s = self.L2Norm_conv5_3(x)
+    arm_sources.append(s)
+    # arm_sources.append(x)
     
     # apply vgg up to conv_fc7
     for k in range(pool5, self.vgg_key_ids[2] + 1):
@@ -228,7 +228,7 @@ class RefineDet(nn.Module):
   
   def load_weights(self, base_file):
       other, ext = os.path.splitext(base_file)
-      if ext == '.pkl' or '.pth':
+      if ext in ('.pkl', '.pth'):
           print('Loading weights into state dict...')
           self.load_state_dict(torch.load(base_file,
                                map_location=lambda storage, loc: storage))
