@@ -26,9 +26,9 @@ def str2bool(v):
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Training With Pytorch')
 train_set = parser.add_mutually_exclusive_group()
-parser.add_argument('--dataset', default='COCO', choices=['VOC', 'COCO'],
+parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO'],
                     type=str, help='VOC or COCO')
-parser.add_argument('--dataset_root', default='/root/dataset/coco',
+parser.add_argument('--dataset_root', default='/root/dataset/voc/VOCdevkit/',
                     help='Dataset root directory path')
 parser.add_argument('--basenet', default='vgg16_reducedfc.pth',
                     help='Pretrained base model')
@@ -91,6 +91,7 @@ def train():
             parser.error('Must specify dataset if specifying dataset_root')
         cfg = voc
         dataset = VOCDetection(root=args.dataset_root,
+                               image_sets=[('2007', 'trainval')],
                                transform=SSDAugmentation(cfg['min_dim'],
                                                          MEANS))
 
@@ -118,22 +119,19 @@ def train():
     else:
         vgg_weights = torch.load(args.save_folder + args.basenet)
         print('Loading base network...')
+        # pdb.set_trace()
+        for k, v in vgg_weights.items():
+            print(k, v.shape)
         refinedet.vgg.load_state_dict(vgg_weights)
 
   
-
-    if not args.resume:
-        print('Initializing weights...')
-        # initialize newly added layers' weights with xavier method
-        refinedet.extras.apply(weights_init)
-        refinedet.bi_loc.apply(weights_init)
-        refinedet.bi_conf.apply(weights_init)
-
-        refinedet.back_pyramid.apply(weights_init)
-        refinedet.multi_loc.apply(weights_init)
-        refinedet.multi_conf.apply(weights_init)
     
-
+    # pdb.set_trace()
+    params = net.state_dict()
+    for k, v in params.items():
+        print(k)
+        print(v.shape)
+        
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
                           weight_decay=args.weight_decay)
     bi_criterion = BiBoxLoss(0.5, True, 0, True, 3, 0.5, args.cuda)
@@ -202,12 +200,14 @@ def train():
                 targets = [Variable(ann, volatile=True) for ann in targets]
             # forward
             t0 = time.time()
+            # pdb.set_trace()
             bi_out, multi_out, priors = net(images)
             # backprop
             optimizer.zero_grad()
             bi_loss_l, bi_loss_c = bi_criterion(bi_out, priors, targets)
             multi_loss_l, multi_loss_c = multi_criterion(bi_out, multi_out, priors,
                                                          targets)
+            # loss = bi_loss_l + bi_loss_c
             loss = bi_loss_l + bi_loss_c + multi_loss_l + multi_loss_c
             loss.backward()
             optimizer.step()
@@ -229,7 +229,7 @@ def train():
                                 multi_loss_l.data[0], multi_loss_c.data[0],
                                 iter_plot, epoch_plot, 'append')
     
-            if iteration != 0 and iteration % 5000 == 0:
+            if iteration != 0 and iteration % 500 == 0:
                 print('Saving state, iter:', iteration)
                 torch.save(refinedet.state_dict(), 'weights/refinedet320_COCO_' +
                            repr(iteration) + '.pth')
@@ -253,14 +253,6 @@ def adjust_learning_rate(optimizer, gamma, step):
         param_group['lr'] = lr
 
 
-def xavier(param):
-    init.xavier_uniform(param)
-
-
-def weights_init(m):
-    if isinstance(m, nn.Conv2d):
-        xavier(m.weight.data)
-        m.bias.data.zero_()
 
 
 def create_vis_plot(_xlabel, _ylabel, _title, _legend):

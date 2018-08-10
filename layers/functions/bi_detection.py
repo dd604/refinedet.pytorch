@@ -5,9 +5,6 @@ from ..box_utils import decode, nms
 from data import voc as cfg
 import pdb
 
-import sys
-sys.dont_write_bytecode = True
-
 
 class Detect(Function):
     """At test time, Detect is the final layer of SSD.  Decode location preds,
@@ -21,7 +18,8 @@ class Detect(Function):
         prior_threshold: to filter negatives, tipically 0.99
         conf_thresh: for results
         """
-        self.num_classes = num_classes
+        # self.num_classes = num_classes
+        self.num_classes = 2
         self.background_label = bkg_label
         self.top_k = top_k
         self.prior_threshold = prior_threshold
@@ -44,41 +42,27 @@ class Detect(Function):
                 Shape: [1,num_priors,4]
         """
         # import pdb
-        # pdb.set_trace()
+        pdb.set_trace()
         num = bi_loc_data.size(0)  # batch size
         num_priors = prior_data.size(0)
         output = torch.zeros(num, self.num_classes, self.top_k, 5)
         bi_conf_preds = bi_conf_data.view(num, num_priors, 2)
-        multi_conf_preds = multi_conf_data.view(num, num_priors,
-                                                self.num_classes)
         bi_conf_preds_variable = Variable(bi_conf_preds, requires_grad=False)
         # select
         # Decode predictions into bboxes.
         for i in range(num):
             # For each class, perform nms
-            # softmax
-            # 
 #             pdb.set_trace()
-            # print(type(bi_conf_preds_variable))
             bi_conf_scores = functional.softmax(bi_conf_preds_variable[i],
-                                                dim=-1).data.clone()
-            # ignore priors whose negative score is big
-#             ignore_flag = bi_conf_scores[:, 0] > self.prior_threshold
-#             index = torch.nonzero(1 - ignore_flag)[:, 0]
-            flag = bi_conf_scores[:, 1] >= (1 - self.prior_threshold)
-            index = torch.nonzero(flag)[:, 0]
-            # decoded boxes
-            arm_boxes = decode(bi_loc_data[i][index, :],
-                               prior_data[index, :], self.variance)
-            odm_boxes = decode(multi_loc_data[i][index, :],
-                               arm_boxes, self.variance)
-            multi_conf_scores = multi_conf_preds[i][index, :].clone().\
-              transpose(1, 0)
+                                                dim=-1).transpose(1, 0).data.clone()
+            pdb.set_trace()
+            odm_boxes = decode(bi_loc_data[i],
+                   prior_data, self.variance)
             
-            # pdb.set_trace()
             for cl in range(1, self.num_classes):
-                c_mask = multi_conf_scores[cl].gt(self.conf_thresh)
-                scores = multi_conf_scores[cl][c_mask]
+            # for cl in range(0, 1):
+                c_mask = bi_conf_scores[cl].gt(self.conf_thresh)
+                scores = bi_conf_scores[cl][c_mask]
                 if scores.dim() == 0:
                     continue
                 l_mask = c_mask.unsqueeze(1).expand_as(odm_boxes)
@@ -92,4 +76,5 @@ class Detect(Function):
         _, idx = flt[:, :, 0].sort(1, descending=True)
         _, rank = idx.sort(1)
         flt[(rank < self.top_k).unsqueeze(-1).expand_as(flt)].fill_(0)
+        
         return output

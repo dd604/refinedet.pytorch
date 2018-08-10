@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.nn.init as init
 from torch.autograd import Variable
 from layers import *
 from data import voc, coco
@@ -9,6 +10,48 @@ from data import voc, coco
 import os
 
 import pdb
+
+
+def weights_init(m):
+    '''
+    Usage:
+        model = Model()
+        model.apply(weight_init)
+    '''
+    print(m)
+    if isinstance(m, nn.Conv1d):
+        init.normal(m.weight.data)
+        init.constant(m.bias.data, 0)
+    elif isinstance(m, nn.Conv2d):
+        init.xavier_normal(m.weight.data)
+        init.constant(m.bias.data, 0)
+    elif isinstance(m, nn.Conv3d):
+        init.xavier_normal(m.weight.data)
+        init.constant(m.bias.data, 0)
+    elif isinstance(m, nn.ConvTranspose1d):
+        init.normal(m.weight.data)
+        init.constant(m.bias.data, 0)
+    elif isinstance(m, nn.ConvTranspose2d):
+        init.xavier_normal(m.weight.data)
+        init.constant(m.bias.data, 0)
+    elif isinstance(m, nn.ConvTranspose3d):
+        init.xavier_normal(m.weight.data)
+        init.constant(m.bias.data, 0)
+    elif isinstance(m, nn.BatchNorm1d):
+        init.normal(m.weight.data, mean=1, std=0.02)
+        init.constant(m.bias.data, 0)
+    elif isinstance(m, nn.BatchNorm2d):
+        init.normal(m.weight.data, mean=1, std=0.02)
+        init.constant(m.bias.data, 0)
+    elif isinstance(m, nn.BatchNorm3d):
+        init.normal(m.weight.data, mean=1, std=0.02)
+        init.constant(m.bias.data, 0)
+    elif isinstance(m, nn.Linear):
+        init.xavier_normal(m.weight.data)
+        init.constant(m.bias.data, 0)
+    # else:
+    #     print('Warning, an unknowned instance!!')
+    #     print(m)
 
 
 class TCB(nn.Module):
@@ -107,6 +150,16 @@ class RefineDet(nn.Module):
       self.detect = Detect(self.num_classes, 0, 200,
                            self.negative_prior_threshold, 0.01, 0.45)
 
+    print('Initializing weights...')
+    # initialize newly added layers' weights with xavier method
+    self.extras.apply(weights_init)
+    self.back_pyramid.apply(weights_init)
+
+    self.bi_loc.apply(weights_init)
+    self.bi_conf.apply(weights_init)
+    self.multi_loc.apply(weights_init)
+    self.multi_conf.apply(weights_init)
+
   def forward(self, x):
     """Applies network layers and ops on input image(s) x.
 
@@ -139,6 +192,7 @@ class RefineDet(nn.Module):
   
   def _arm(self, x):
     # arm, anchor refinement moduel
+    
     arm_sources = list()
     bi_loc_pred = list()
     bi_conf_pred = list()
@@ -171,8 +225,9 @@ class RefineDet(nn.Module):
     for k, v in enumerate(self.extras):
       x = v(x)
     arm_sources.append(x)
-
+#     pdb.set_trace()
     # apply multibox head to source layers
+    num_classes = 2
     for (x, l, c) in zip(arm_sources, self.bi_loc, self.bi_conf):
       bi_loc_pred.append(l(x).permute(0, 2, 3, 1).contiguous())
       bi_conf_pred.append(c(x).permute(0, 2, 3, 1).contiguous())
@@ -183,7 +238,7 @@ class RefineDet(nn.Module):
                               for o in bi_conf_pred], 1)
 
     bi_output = (bi_loc_pred.view(bi_loc_pred.size(0), -1, 4),
-      bi_conf_pred.view(bi_conf_pred.size(0), -1, 2))
+      bi_conf_pred.view(bi_conf_pred.size(0), -1, num_classes))
     
     return arm_sources, bi_output, self.priors
   
@@ -193,10 +248,13 @@ class RefineDet(nn.Module):
     multi_loc_pred = list()
     multi_conf_pred = list()
     
-    # pdb.set_trace()
+#     pdb.set_trace()
     # print([cur.size() for cur in arm_sources])
     # for odm
-    for k in range(len(arm_sources)-1, -1, -1):
+    # reverse
+    k_range = range(len(arm_sources))
+    k_range.reverse()
+    for k in k_range:
       if k == (len(arm_sources) - 1):
         odm_sources.append(self.back_pyramid[k](arm_sources[k],
                                                 arm_sources[k],
@@ -319,15 +377,15 @@ def arm_bibox(vgg, vgg_key_ids, extra_layers, priors_cfg):
   # relu has no 'out_channels' attribution.
   for k, v in enumerate(vgg_key_ids):
     loc_layers += [nn.Conv2d(vgg[v-1].out_channels,
-                             priors_cfg[k] * 4, kernel_size=3, padding=1)]
+               priors_cfg[k] * 4, kernel_size=3, padding=1)]
     conf_layers += [nn.Conv2d(vgg[v-1].out_channels,
-                              priors_cfg[k] * num_classes, kernel_size=3, padding=1)]
+                priors_cfg[k] * num_classes, kernel_size=3, padding=1)]
   
   # relu has no 'out_channels' attribution.
-  loc_layers += [nn.Conv2d(extra_layers[-2].out_channels, priors_cfg[-1]
-                           * 4, kernel_size=3, padding=1)]
-  conf_layers += [nn.Conv2d(extra_layers[-2].out_channels, priors_cfg[-1]
-                            * num_classes, kernel_size=3, padding=1)]
+  loc_layers += [nn.Conv2d(extra_layers[-2].out_channels, 
+              priors_cfg[-1] * 4, kernel_size=3, padding=1)]
+  conf_layers += [nn.Conv2d(extra_layers[-2].out_channels, 
+              priors_cfg[-1] * num_classes, kernel_size=3, padding=1)]
   
   return vgg, extra_layers, (loc_layers, conf_layers)
 
@@ -346,6 +404,7 @@ def odm_multibox(back_pyramid_layers, priors_cfg, num_classes):
   # pdb.set_trace()
   for k, v in enumerate(back_pyramid_layers):
     # why this has out_channels ?
+    # v is TCB model
     loc_layers += [nn.Conv2d(v.out_channels,
                              priors_cfg[k] * 4, kernel_size=3, padding=1)]
     conf_layers += [nn.Conv2d(v.out_channels,

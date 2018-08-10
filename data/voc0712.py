@@ -12,6 +12,8 @@ import torch
 import torch.utils.data as data
 import cv2
 import numpy as np
+import pdb
+
 if sys.version_info[0] == 2:
     import xml.etree.cElementTree as ET
 else:
@@ -19,9 +21,9 @@ else:
 
 VOC_CLASSES = (  # always index 0
     'aeroplane', 'bicycle', 'bird', 'boat',
-    'bottle', 'bus', 'car', 'cat', 'chair',
-    'cow', 'diningtable', 'dog', 'horse',
-    'motorbike', 'person', 'pottedplant',
+    'bottle', 'bus', 'car', 'cat',
+    'chair', 'cow', 'diningtable', 'dog',
+    'horse', 'motorbike', 'person', 'pottedplant',
     'sheep', 'sofa', 'train', 'tvmonitor')
 
 # note: if you used our download scripts, this should be right
@@ -64,12 +66,15 @@ class VOCAnnotationTransform(object):
 
             pts = ['xmin', 'ymin', 'xmax', 'ymax']
             bndbox = []
+            # pdb.set_trace()
+            # normalization to (0, 1)
             for i, pt in enumerate(pts):
-                cur_pt = int(bbox.find(pt).text) - 1
+                # to float
+                cur_pt = int(bbox.find(pt).text) - 1.0
                 # scale height or width
                 cur_pt = cur_pt / width if i % 2 == 0 else cur_pt / height
                 bndbox.append(cur_pt)
-            label_idx = self.class_to_ind[name]
+            label_idx = float(self.class_to_ind[name])
             bndbox.append(label_idx)
             res += [bndbox]  # [xmin, ymin, xmax, ymax, label_ind]
             # img_id = target.find('filename').text[:-4]
@@ -106,6 +111,7 @@ class VOCDetection(data.Dataset):
         self._annopath = osp.join('%s', 'Annotations', '%s.xml')
         self._imgpath = osp.join('%s', 'JPEGImages', '%s.jpg')
         self.ids = list()
+        # pdb.set_trace()
         for (year, name) in image_sets:
             rootpath = osp.join(self.root, 'VOC' + year)
             for line in open(osp.join(rootpath, 'ImageSets', 'Main', name + '.txt')):
@@ -121,7 +127,7 @@ class VOCDetection(data.Dataset):
 
     def pull_item(self, index):
         img_id = self.ids[index]
-
+        # pdb.set_trace()
         target = ET.parse(self._annopath % img_id).getroot()
         img = cv2.imread(self._imgpath % img_id)
         height, width, channels = img.shape

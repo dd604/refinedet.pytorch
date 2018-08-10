@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import torch
-
+import pdb
 
 def point_form(boxes):
     """ Convert prior_boxes to (xmin, ymin, xmax, ymax)
@@ -68,7 +68,8 @@ def jaccard(box_a, box_b):
     return inter / union  # [A,B]
 
 
-def match(threshold, truths, priors, variances, labels, loc_t, conf_t, idx):
+def match(threshold, truths, priors, variances, labels, loc_t, conf_t, 
+          idx):
     """Match each prior box with the ground truth box of the highest jaccard
     overlap, encode the bounding boxes, then return the matched indices
     corresponding to both confidence and location preds.
@@ -214,6 +215,7 @@ def log_sum_exp(x):
     Args:
         x (Variable(tensor)): conf_preds from conf layers
     """
+    # pdb.set_trace()
     x_max = x.data.max()
     return torch.log(torch.sum(torch.exp(x-x_max), 1, keepdim=True)) + x_max
 

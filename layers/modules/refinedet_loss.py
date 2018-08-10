@@ -9,6 +9,7 @@ from ..box_utils import match, log_sum_exp, encode, decode, match_and_encode
 import pdb
 
 
+
 class BiBoxLoss(nn.Module):
   """SSD Weighted Loss Function
   Compute Targets:
@@ -21,9 +22,9 @@ class BiBoxLoss(nn.Module):
        that comes with using a large number of default bounding boxes.
        (default negative:positive ratio 3:1)
   Objective Loss:
-    L(x,c,l,g) = (Lconf(x, c) + αLloc(x,l,g)) / N
+    L(x,c,l,g) = (Lconf(x, c) + ��Lloc(x,l,g)) / N
     Where, Lconf is the CrossEntropy Loss and Lloc is the SmoothL1 Loss
-    weighted by α which is set to 1 by cross val.
+    weighted by �� which is set to 1 by cross val.
     Args:
         c: class confidences,
         l: predicted boxes,
@@ -67,23 +68,17 @@ class BiBoxLoss(nn.Module):
     # result: match priors (default boxes) and ground truth boxes
     loc_t = torch.Tensor(num, num_priors, 4)
     conf_t = torch.LongTensor(num, num_priors)
+#     pdb.set_trace()
     for idx in range(num):
       truths = targets[idx][:, :-1].data
-      # labels = targets[idx][:, -1].data.clone()
-      # labels.fill_(0)
-      labels = targets[idx][:, -1].data
-      # binary classes
-      # labels = (labels >= 0).type_as(labels)
-      # labels = labels.fill(0)
-      
-      labels = labels.new(labels.size()).zero_()
-      
+      labels = torch.zeros_like(targets[idx][:, -1].data)
+
       defaults = priors.data
       # pdb.set_trace()
+      # encode results are stored in loc_t and conf_t
       match(self.threshold, truths, defaults, self.variance, labels,
             loc_t, conf_t, idx)
       
-    
     if self.use_gpu:
       loc_t = loc_t.cuda()
       conf_t = conf_t.cuda()
@@ -101,8 +96,9 @@ class BiBoxLoss(nn.Module):
     loss_l = F.smooth_l1_loss(loc_p, loc_t, size_average=False)
 
     # Compute max conf across batch for hard negative mining
-    batch_conf = conf_data.view(-1, self.num_classes)
-    loss_c = log_sum_exp(batch_conf) - batch_conf.gather(1, conf_t.view(-1, 1))
+    batch_conf = conf_data.view(-1, self.num_classes).clone()
+    loss_c = log_sum_exp(batch_conf) - \
+        batch_conf.gather(1, conf_t.view(-1, 1))
 
     # change view
     loss_c = loss_c.view(num, -1)
@@ -123,7 +119,7 @@ class BiBoxLoss(nn.Module):
     targets_weighted = conf_t[(pos+neg).gt(0)]
     loss_c = F.cross_entropy(conf_p, targets_weighted, size_average=False)
 
-    # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + αLloc(x,l,g)) / N
+    # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + ��Lloc(x,l,g)) / N
 
     N = num_pos.data.sum()
     loss_l /= N
@@ -145,9 +141,9 @@ class MultiBoxLoss(nn.Module):
            that comes with using a large number of default bounding boxes.
            (default negative:positive ratio 3:1)
     Objective Loss:
-        L(x,c,l,g) = (Lconf(x, c) + αLloc(x,l,g)) / N
+        L(x,c,l,g) = (Lconf(x, c) + ��Lloc(x,l,g)) / N
         Where, Lconf is the CrossEntropy Loss and Lloc is the SmoothL1 Loss
-        weighted by α which is set to 1 by cross val.
+        weighted by �� which is set to 1 by cross val.
         Args:
             c: class confidences,
             l: predicted boxes,
@@ -194,13 +190,15 @@ class MultiBoxLoss(nn.Module):
         # no soft max score
         # arm_conf_data = bi_prediction[1].data
         # softmax
+        # arm_conf_data = F.softmax(bi_prediction[1].data, -1)
         arm_conf_data = F.softmax(bi_prediction[1], -1).data
         # variable
-        loc_data, conf_data = multi_prediction
+        loc_data, conf_data = multi_prediction[0], multi_prediction[1]
         num = loc_data.size(0)
         num_priors = priors.size(0)
       
         # adjust priors
+        # the shape is [num, num_priors, 4], priors [num_priors, 4]
         refined_priors = self._adjust_priors(arm_loc_data, priors.data,
                                              self.arm_variance)
         # match priors (default boxes) and ground truth boxes
@@ -261,8 +259,9 @@ class MultiBoxLoss(nn.Module):
 
         # Compute max conf across batch for hard negative mining
         batch_conf = conf_data.view(-1, self.num_classes)
-        # conf_t must be in range [0, classes]
-        ignore = conf_t == -1
+        # conf_t must be long integers with range [0, classes]
+        ignore = (conf_t == -1)
+        # warning !!!
         conf_t[ignore] = 0
         # pdb.set_trace()
         loss_c = log_sum_exp(batch_conf) - batch_conf.gather(1, conf_t.view(-1, 1))
@@ -289,7 +288,7 @@ class MultiBoxLoss(nn.Module):
         targets_weighted = conf_t[(pos+neg).gt(0)]
         loss_c = F.cross_entropy(conf_p, targets_weighted, size_average=False)
 
-        # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + αLloc(x,l,g)) / N
+        # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + ��Lloc(x,l,g)) / N
 
         N = num_pos.data.sum()
         loss_l /= N
