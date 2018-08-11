@@ -18,7 +18,7 @@ def weights_init(m):
         model = Model()
         model.apply(weight_init)
     '''
-    print(m)
+    # print(m)
     if isinstance(m, nn.Conv1d):
         init.normal(m.weight.data)
         init.constant(m.bias.data, 0)

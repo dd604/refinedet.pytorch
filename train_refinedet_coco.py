@@ -231,7 +231,8 @@ def train():
     
             if iteration != 0 and iteration % 5000 == 0:
                 print('Saving state, iter:', iteration)
-                torch.save(refinedet.state_dict(), 'weights/refinedet320_COCO_' +
+                torch.save(refinedet.state_dict(), 'weights/refinedet320_' +
+                           args.dataset + '_' +
                            repr(iteration) + '.pth')
 
             iteration += 1

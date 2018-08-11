@@ -120,17 +120,17 @@ def train():
         vgg_weights = torch.load(args.save_folder + args.basenet)
         print('Loading base network...')
         # pdb.set_trace()
-        for k, v in vgg_weights.items():
-            print(k, v.shape)
-        refinedet.vgg.load_state_dict(vgg_weights)
+        # for k, v in vgg_weights.items():
+        #     print(k, v.shape)
+        # refinedet.vgg.load_state_dict(vgg_weights)
 
   
     
     # pdb.set_trace()
     params = net.state_dict()
-    for k, v in params.items():
-        print(k)
-        print(v.shape)
+    # for k, v in params.items():
+    #     print(k)
+    #     print(v.shape)
         
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
                           weight_decay=args.weight_decay)
@@ -229,9 +229,10 @@ def train():
                                 multi_loss_l.data[0], multi_loss_c.data[0],
                                 iter_plot, epoch_plot, 'append')
     
-            if iteration != 0 and iteration % 500 == 0:
+            if iteration != 0 and iteration % 2000 == 0:
                 print('Saving state, iter:', iteration)
-                torch.save(refinedet.state_dict(), 'weights/refinedet320_COCO_' +
+                torch.save(refinedet.state_dict(), 'weights/refinedet320_' +
+                           args.dataset + '_' +
                            repr(iteration) + '.pth')
 
             iteration += 1
