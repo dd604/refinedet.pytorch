@@ -1,7 +1,7 @@
 import torch
 from torch.autograd import Function, Variable
 import torch.nn.functional as functional
-from ..box_utils import decode, nms
+from ..box_utils import decode, nms, refine_priors
 from data import voc as cfg
 import pdb
 
@@ -41,7 +41,7 @@ class Detect(Function):
             bi_conf_data: (tensor) Shape: Conf preds from conf layers
                 Shape: [batch*num_priors,num_classes]
             prior_data: (tensor) Prior boxes and variances from priorbox layers
-                Shape: [1,num_priors,4]
+                Shape: [num_priors,4]
         """
         # import pdb
         # pdb.set_trace()
@@ -52,6 +52,7 @@ class Detect(Function):
         multi_conf_preds = multi_conf_data.view(num, num_priors,
                                                 self.num_classes)
         bi_conf_preds_variable = Variable(bi_conf_preds, requires_grad=False)
+        refined_priors = refine_priors(bi_loc_data, prior_data, self.variance)
         # select
         # Decode predictions into bboxes.
         for i in range(num):
@@ -68,10 +69,9 @@ class Detect(Function):
             flag = bi_conf_scores[:, 1] >= (1 - self.prior_threshold)
             index = torch.nonzero(flag)[:, 0]
             # decoded boxes
-            arm_boxes = decode(bi_loc_data[i][index, :],
-                               prior_data[index, :], self.variance)
+            cur_refined_priors = refined_priors[i]
             odm_boxes = decode(multi_loc_data[i][index, :],
-                               arm_boxes, self.variance)
+                               cur_refined_priors[index], self.variance)
             multi_conf_scores = multi_conf_preds[i][index, :].clone().\
               transpose(1, 0)
             

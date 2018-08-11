@@ -19,7 +19,7 @@ import pdb
 
 net = build_refinedet('test', voc, 320, 21)    # initialize SSD
 # net = build_refinedet('test', coco, 320, 81)    # initialize SSD
-net.load_weights('../weights/refinedet320_COCO_5000.pth')
+net.load_weights('../weights/refinedet320_VOC_46000.pth')
 
 # # image = cv2.imread('./data/example.jpg', cv2.IMREAD_COLOR)  # uncomment if dataset not downloaded
 # %matplotlib inline

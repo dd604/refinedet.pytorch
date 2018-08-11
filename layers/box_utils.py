@@ -22,8 +22,8 @@ def center_size(boxes):
     Return:
         boxes: (tensor) Converted xmin, ymin, xmax, ymax form of boxes.
     """
-    return torch.cat((boxes[:, 2:] + boxes[:, :2])/2,  # cx, cy
-                     boxes[:, 2:] - boxes[:, :2], 1)  # w, h
+    return torch.cat(((boxes[:, 2:] + boxes[:, :2])/2,  # cx, cy
+                     boxes[:, 2:] - boxes[:, :2]), 1)  # w, h
 
 
 def intersect(box_a, box_b):
@@ -159,8 +159,6 @@ def match_and_encode(threshold, truths, priors, variances, labels):
   return loc_target, conf_target
 
 
-
-
 def encode(matched, priors, variances):
     """Encode the variances from the priorbox layers into the ground truth boxes
     we have matched (based on jaccard overlap) with the prior boxes.
@@ -288,3 +286,35 @@ def nms(boxes, scores, overlap=0.5, top_k=200):
         # keep only elements with an IoU <= overlap
         idx = idx[IoU.le(overlap)]
     return keep, count
+
+
+def refine_priors(loc_pred, priors, variance):
+    """
+    
+    :param loc_pred: (batch_size, num_priors, 4),
+        (norm_cx, norm_cy, norm_w, norm_h)
+    :param priors: (num_priors, 4), (cx, cy, w, h)
+    :param variance: (var_xy, var_wh)
+    :return: refined_priors (batch_size, num_priors, 4),
+        (cx, cy, w, h)
+    """
+    num = loc_pred.size(0)
+    num_priors = priors.size(0)
+    
+    assert loc_pred.size(1) == num_priors, 'priors'
+    
+    refined_priors = torch.Tensor(num, num_priors, 4)
+    for ind in range(num):
+        cur_loc = loc_pred[ind]
+        # cur_loc (norm_dx, norm_dy, norm_w, norm_h)
+        # priors(cx, cy, w, h)
+        # boxes (x1, y1, x2, y2)
+        boxes = decode(cur_loc, priors, variance)
+        # (cx, cy, x2, y2)
+        pdb.set_trace()
+        boxes[:, :2] = (boxes[:, :2] + boxes[:, 2:]) / 2.0
+        # (cx, cy, w, h)
+        boxes[:, 2:] = (boxes[:, 2:] - boxes[:, :2]) * 2.0
+        refined_priors[ind] = boxes
+    
+    return refined_priors
