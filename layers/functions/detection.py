@@ -88,6 +88,8 @@ class Detect(Function):
                 output[i, cl, :count] = \
                     torch.cat((scores[ids[:count]].unsqueeze(1),
                                boxes[ids[:count]]), 1)
+        # sort across each batch, which is different from the paper.
+        # But since fill_ function is used, this is useless.
         flt = output.contiguous().view(num, -1, 5)
         _, idx = flt[:, :, 0].sort(1, descending=True)
         _, rank = idx.sort(1)

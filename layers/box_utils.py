@@ -311,7 +311,7 @@ def refine_priors(loc_pred, priors, variance):
         # boxes (x1, y1, x2, y2)
         boxes = decode(cur_loc, priors, variance)
         # (cx, cy, x2, y2)
-        pdb.set_trace()
+        # pdb.set_trace()
         boxes[:, :2] = (boxes[:, :2] + boxes[:, 2:]) / 2.0
         # (cx, cy, w, h)
         boxes[:, 2:] = (boxes[:, 2:] - boxes[:, :2]) * 2.0

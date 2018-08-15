@@ -13,7 +13,7 @@ from data import VOCAnnotationTransform, VOCDetection, BaseTransform, VOC_CLASSE
 from data import COCO_ROOT, COCO_CLASSES
 
 import torch.utils.data as data
-from ssd import build_refinedet
+from refinedet import build_refinedet
 
 parser = argparse.ArgumentParser(description='Single Shot MultiBox Detection')
 parser.add_argument('--trained_model', default='weights/ssd_300_VOC0712.pth',

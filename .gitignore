@@ -128,3 +128,6 @@ data/ssd_dataloader.py
 .pylintrc
 
 nohup*
+
+refinedet320_120000/
+refinedet320_120000.pth

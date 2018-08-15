@@ -114,6 +114,7 @@ class VOCDetection(data.Dataset):
         # pdb.set_trace()
         for (year, name) in image_sets:
             rootpath = osp.join(self.root, 'VOC' + year)
+            print(rootpath)
             for line in open(osp.join(rootpath, 'ImageSets', 'Main', name + '.txt')):
                 self.ids.append((rootpath, line.strip()))
 
