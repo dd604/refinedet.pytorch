@@ -5,6 +5,10 @@ import torch.nn as nn
 from torch.autograd import Variable
 from libs.utils.net_utils import TCB, weights_init
 from libs.modules.prior_box import PriorBox
+from libs.modules.detect_layer import Detect
+from libs.modules.arm_loss import ARMLoss
+from libs.modules.odm_loss import ODMLoss
+
 # from data.config import cfg as _cfg
 
 
@@ -15,10 +19,9 @@ class RefineDet(nn.Module):
         self.num_classes = num_classes
         self.phase = phase
         self.cfg = cfg
-        self.priorbox = PriorBox(self.cfg)
+        self.prior_layer = PriorBox(self.cfg)
         # priors are on cpu, their type will be converted accordingly in later
-        self.priors = Variable(self.priorbox.forward(), volatile=True)
-        # self.priors = Variable(self.priorbox.forward(), volatile=True).cuda()
+        self.priors = Variable(self.prior_layer.forward(), volatile=True)
         # pdb.set_trace()
         # vgg backbone
         self.base = None
@@ -28,9 +31,23 @@ class RefineDet(nn.Module):
         self.layer3 = None
         self.layer4 = None
         self.layers_out_channels = []
-        # Layer learns to scale the l2 normalized features from conv4_3
-        # self.L2Norm_conv4_3 = L2Norm(512, 8)
-        # self.L2Norm_conv5_3 = L2Norm(512, 10)
+        
+        # detection layer and loss layers
+        self.detect_layer = Detect(
+            self.num_classes, cfg['top_k'], cfg['pos_prior_threshold'],
+            cfg['detection_conf_threshold'], cfg['detection_nms'],
+            cfg['variance'], cfg['variance']
+        )
+        self.arm_loss_layer = ARMLoss(cfg['gt_overlap_threshold'],
+                                      cfg['neg_pos_ratio'],
+                                      cfg['variance'])
+        self.odm_loss_layer = ODMLoss(
+            self.num_classes, cfg['pos_prior_threshold'],
+            cfg['gt_overlap_threshold'], cfg['neg_pos_ratio'],
+            cfg['variance'], cfg['variance']
+        )
+        self.bi_predictions = None
+        self.multi_predictions = None
 
     def _init_modules(self):
         """
@@ -83,10 +100,11 @@ class RefineDet(nn.Module):
         self._init_modules()
         self._init_weights()
     
-    def forward(self, x):
+    def forward(self, x, targets=None):
         """Applies network layers and ops on input image(s) x.
         Args:
           x: input image or batch of images. Shape: [batch,3,320,320].
+          targets:
         """
         # forward features
         forward_features = self._calculate_forward_features(x)
@@ -99,18 +117,29 @@ class RefineDet(nn.Module):
         p2 = self.pyramid_layer2(c2, p3)
         p1 = self.pyramid_layer1(c1, p2)
         pyramid_features = [p1, p2, p3, p4]
-        
+        if x.is_cuda:
+            self.priors.cuda()
         # heads
         bi_loc_pred, bi_conf_pred = self._forward_arm_head(forward_features)
         multi_loc_pred, multi_conf_pred = self._forward_odm_head(pyramid_features)
+        self.bi_predictions = (bi_loc_pred, bi_conf_pred)
+        self.multi_predictions = (multi_loc_pred, multi_conf_pred)
         
         if self.phase == 'test':
-            return self.detect(bi_loc_pred, bi_conf_pred, multi_loc_pred, \
-                   self.softmax(multi_conf_pred.view(
-                       multi_conf_pred.size(0), -1, self.num_classes)),
-                       self.priors)
-        else:
-            return bi_loc_pred, bi_conf_pred, multi_loc_pred, multi_conf_pred
+            return self.detect(self.bi_predictions, self.multi_predictions,
+                               self.priors)
+        elif targets is not None:
+            return self.calculate_loss(targets)
+    
+    def calculate_loss(self, targets):
+        bi_loss_loc, bi_loss_conf = self.arm_loss_layer.forward(
+            self.bi_predictions, self.priors, targets
+        )
+        multi_loss_loc, multi_loss_conf = self.odm_loss_layer.forward(
+            self.bi_predictions, self.multi_predictions, self.priors, targets
+        )
+        
+        return bi_loss_loc, bi_loss_conf, multi_loss_loc, multi_loss_conf
     
     def _calculate_forward_features(self, x):
         """

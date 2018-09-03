@@ -25,10 +25,12 @@ voc = {
     'variance': [0.1, 0.2],
     'clip': True,
     'gt_overlap_threshold': 0.5,
+    'neg_pos_ratio': 3,
     # prior with positive probility less than this will be ignored
     'pos_prior_threshold': 0.99,
     'top_k': 200,
-    'detection_nms_thresh': 0.45,
+    'detection_nms': 0.45,
+    'detection_conf_threshold': 0.6,
     'name': 'VOC',
 }
 
@@ -48,10 +50,12 @@ coco = {
     'variance': [0.1, 0.2],
     'clip': True,
     'gt_overlap_threshold': 0.5,
+    'neg_pos_ratio': 3,
     # prior with positive probility less than this will be ignored
     'pos_prior_threshold': 0.99,
     'top_k': 200,
-    'detection_nms_thresh': 0.45,
+    'detection_nms': 0.45,
+    'detection_conf_threshold': 0.6,
     'name': 'COCO',
 }
 

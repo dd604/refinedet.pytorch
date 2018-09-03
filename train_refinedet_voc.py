@@ -1,7 +1,10 @@
-from data import *
-from libs.utils import SSDAugmentation
-from layers.modules import BiBoxLoss, MultiBoxLoss
-from refinedet import build_refinedet
+import os
+import sys
+
+sys.path.append()
+from libs.utils.augmentations import SSDAugmentation
+from libs.modules import arm_loss, odm_loss
+from network import build_refinedet
 import os
 import time
 import torch

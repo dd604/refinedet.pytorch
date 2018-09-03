@@ -32,6 +32,7 @@ class Detect(nn.Module):
         self.nms_thresh = nms_thresh
         self.arm_variance = arm_variance
         self.variance = odm_variance
+        # self.softmax = functional.softmax
 
     def forward(self, bi_predictions, multi_predictions, prior_data):
         """
@@ -52,15 +53,21 @@ class Detect(nn.Module):
         # pdb.set_trace()
         # batch size
         bi_loc_data, bi_conf_data = bi_predictions[0], bi_predictions[1]
-        multi_loc_data, multi_conf_data = multi_predictions[0], \
-                                          multi_predictions[1]
+        multi_loc_data, multi_conf_data = (multi_predictions[0],
+                                           multi_predictions[1])
+        # change confidence value to score by softmax.
+        bi_score_variable = Variable(bi_conf_data, requires_grad=False)
+        bi_score_data = functional.softmax(bi_score_variable, dim=-1).data.clone()
+        
+        multi_score_variable = Variable(multi_conf_data, requires_grad=False)
+        multi_score_data = functional.soft(multi_score_variable, dim=-1).data.clone()
+        # batch size
         num = bi_loc_data.size(0)
         num_priors = prior_data.size(0)
         output = torch.zeros(num, self.num_classes, self.top_k, 5)
-        bi_conf_preds = bi_conf_data.view(num, num_priors, 2)
-        multi_conf_preds = multi_conf_data.view(num, num_priors,
+        bi_score_preds = bi_score_data.view(num, num_priors, 2)
+        multi_score_preds = multi_score_data.view(num, num_priors,
                                                 self.num_classes)
-        bi_conf_preds_variable = Variable(bi_conf_preds, requires_grad=False)
         refined_priors = refine_priors(bi_loc_data, prior_data, self.arm_variance)
         # select
         # Decode predictions into bboxes.
@@ -69,22 +76,21 @@ class Detect(nn.Module):
             # softmax
 #             pdb.set_trace()
             # print(type(bi_conf_preds_variable))
-            bi_conf_scores = functional.softmax(bi_conf_preds_variable[i],
-                                                dim=-1).data.clone()
+            cur_bi_score_preds = bi_score_preds[i]
             # ignore priors whose positive score is small
-            flag = bi_conf_scores[:, 1] >= self.pos_prior_threshold
+            flag = cur_bi_score_preds[:, 1] >= self.pos_prior_threshold
             index = torch.nonzero(flag)[:, 0]
             # decoded boxes
             cur_refined_priors = refined_priors[i]
             odm_boxes = decode(multi_loc_data[i][index, :],
                                cur_refined_priors[index], self.variance)
-            multi_conf_scores = multi_conf_preds[i][index, :].clone().\
+            cur_multi_score_preds = multi_score_preds[i][index, :].clone().\
               transpose(1, 0)
             
             # pdb.set_trace()
             for cl in range(1, self.num_classes):
-                c_mask = multi_conf_scores[cl].gt(self.detect_conf_thresh)
-                scores = multi_conf_scores[cl][c_mask]
+                c_mask = cur_multi_score_preds[cl].gt(self.detect_conf_thresh)
+                scores = cur_multi_score_preds[cl][c_mask]
                 if scores.dim() == 0:
                     continue
                 l_mask = c_mask.unsqueeze(1).expand_as(odm_boxes)
