@@ -1,7 +1,5 @@
 import torch
 import torch.nn as nn
-from torch.autograd import Function
-from torch.autograd import Variable
 import torch.nn.init as init
 
 def weights_init(m):

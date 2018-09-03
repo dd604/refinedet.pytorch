@@ -5,14 +5,14 @@ import torch.nn as nn
 from vgg import make_vgg_layers, add_extra_layers, \
     key_layer_ids, layers_out_channels
 from refinedet import RefineDet as _RefineDet
-from libs.modules.net_utils import L2Norm
+from libs.utils.net_utils import L2Norm
 
 
 class VGGRefineDet(_RefineDet):
     """
     """
-    def __init__(self, num_classes, phase):
-        _RefineDet.__init__(self, num_classes, phase)
+    def __init__(self, num_classes, phase, cfg):
+        _RefineDet.__init__(self, num_classes, phase, cfg)
         
     
     def _init_modules(self, model_path=None, pretrained=True):

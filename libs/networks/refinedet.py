@@ -3,18 +3,18 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-from layers import *
-from libs.modules.net_utils import TCB, weights_init
-from data.config import cfg as _cfg
+from libs.utils.net_utils import TCB, weights_init
+from libs.modules.prior_box import PriorBox
+# from data.config import cfg as _cfg
 
 
 class RefineDet(nn.Module):
     """
     """
-    def __init__(self, num_classes, phase):
+    def __init__(self, num_classes, phase, cfg):
         self.num_classes = num_classes
         self.phase = phase
-        self.cfg = _cfg
+        self.cfg = cfg
         self.priorbox = PriorBox(self.cfg)
         # priors are on cpu, their type will be converted accordingly in later
         self.priors = Variable(self.priorbox.forward(), volatile=True)

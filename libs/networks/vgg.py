@@ -1,11 +1,5 @@
 # encoding: utf-8
-
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.nn.init as init
-from torch.autograd import Variable
-
 
 
 ###
@@ -122,94 +116,6 @@ def add_extra_layers(in_channels=base[-1], cfg=extras, batch_norm=False):
         in_channels = v
     
     return layers
-
-
-
-# This function is derived from torchvision VGG make_layers()
-# https://github.com/pytorch/vision/blob/master/torchvision/models/vgg.py
-def vgg_multiple_in_channesl(cfg=base, batch_norm=False):
-    """
-    :param cfg:
-    :param batch_norm:
-    :return:
-    """
-    layers = []
-    channels = 3
-    key_ids = []
-    multiple_in_channles = []
-    # from conv1_1 to conv5_3
-    # index from 0
-    # conv4_3, 22
-    # conv5_3, 29; pool5, 30
-    # to 30 ['M']
-    for v in cfg[:-2]:
-        if v == 'M':
-            layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
-        elif v == 'C':
-            layers += [nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=True)]
-        else:
-            conv2d = nn.Conv2d(channels, v, kernel_size=3, padding=1)
-            if batch_norm:
-                layers += [conv2d, nn.BatchNorm2d(v), nn.ReLU(inplace=True)]
-            else:
-                layers += [conv2d, nn.ReLU(inplace=True)]
-            channels = v
-    # relu4_3, relu5_3
-    key_ids += [22, 29]
-    multiple_in_channles += [layers[k-2].out_channels if batch_norm
-                            else layers[k-1].out_channels for k in key_ids]
-    # after pool5
-    # dilation 6.
-    dilation = 3
-    kernel_size = 3
-    padding = int((kernel_size + (dilation - 1) * (kernel_size - 1)) - 1) / 2
-    # cfg[-3] == 'M'
-    conv_fc6 = nn.Conv2d(cfg[-4], cfg[-2], kernel_size=kernel_size, padding=padding,
-                         dilation=dilation)
-    conv_fc7 = nn.Conv2d(cfg[-2], cfg[-1], kernel_size=1)
-    # [31 - 34]
-    layers += [conv_fc6, nn.ReLU(inplace=True), conv_fc7, nn.ReLU(inplace=True)]
-    assert (len(layers) == 35)
-    key_ids += [34]
-    # pdb.set_trace()
-    # print(layers)
-    multiple_in_channles += [layers[-2].out_channels]
-    
-    return layers, key_ids, multiple_in_channles
-
-
-def add_extras_multiple_in_channesl(in_channels, multiple_in_channels, cfg=extras,
-               batch_norm=False):
-    """
-    :param in_channels: number of channels of input
-    :param multiple_in_channels: add extra channels to multiple_in_channels
-    :param cfg:
-    :param batch_norm:
-    :return:
-    """
-    # Extra layers added to VGG for feature scaling
-    layers = []
-    channels = in_channels
-    # conv6_1 and conv6_2
-    for k, v in enumerate(cfg):
-        if (k == 0):
-            conv2d = nn.Conv2d(channels, v, kernel_size=1, stride=1, padding=0)
-            if batch_norm:
-                layers += [conv2d, nn.BatchNorm2d(v), nn.ReLU(inplace=True)]
-            else:
-                layers += [conv2d, nn.ReLU(inplace=True)]
-        else:
-            conv2d = nn.Conv2d(channels, v, kernel_size=3, stride=2, padding=1)
-            if batch_norm:
-                layers += [conv2d, nn.BatchNorm2d(v), nn.ReLU(inplace=True)]
-            else:
-                layers += [conv2d, nn.ReLU(inplace=True)]
-        channels = v
-    
-    multiple_in_channels += [layers[-3].out_channels if batch_norm
-                             else layers[-2].out_channels]
-    
-    return layers, multiple_in_channels
 
 
 

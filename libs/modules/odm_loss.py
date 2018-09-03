@@ -2,19 +2,20 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-from libs.modules.box_utils import log_sum_exp, match_and_encode, refine_priors
+import torch.nn.functional as functional
+from libs.utils.box_utils import log_sum_exp, match_and_encode, refine_priors
 
 
 class ODMLoss(nn.Module):
     """
     """
     
-    def __init__(self, num_classes, prior_prob_threshold, overlap_thresh,
+    def __init__(self, num_classes, pos_prior_threshold, overlap_thresh,
                  neg_pos_ratio, arm_variance, variance):
         super(ODMLoss, self).__init__()
         self.num_classes = num_classes
         self.overlap_thresh = overlap_thresh
-        self.prior_prob_threshold = prior_prob_threshold
+        self.pos_prior_threshold = pos_prior_threshold
         self.negpos_ratio = neg_pos_ratio
         self.variance = variance
         self.arm_variance = arm_variance
@@ -27,8 +28,8 @@ class ODMLoss(nn.Module):
         
         arm_loc_data = bi_prediction[0].data
         # softmax
-        # arm_conf_data = F.softmax(bi_prediction[1].data, -1)
-        arm_prob_data = F.softmax(bi_prediction[1], -1).data
+        # arm_conf_data = functional.softmax(bi_prediction[1].data, -1)
+        arm_prob_data = functional.softmax(bi_prediction[1], -1).data
         # variable
         odm_loc_data, odm_conf_data = multi_prediction[0], multi_prediction[1]
         num = odm_loc_data.size(0)
@@ -59,14 +60,14 @@ class ODMLoss(nn.Module):
             cur_priors = refined_priors[idx]
             # softmax arm_conf_data[idx].
             arm_positive_probs = arm_prob_data[idx, :, 1]
-            reserve_flag = arm_positive_probs > self.prior_prob_threshold
+            reserve_flag = arm_positive_probs > self.pos_prior_threshold
             index = torch.nonzero(reserve_flag)[:, 0]
             used_priors = cur_priors[index]
             # print(used_priors.shape)
             # the type of used_conf_t is the same as lables.
             # need to convert it to LongTensor
             used_loc_t, used_conf_t = match_and_encode(self.threshold, truths,
-                                                       used_priors, self.variance, labels)
+                               used_priors, self.variance, labels)
             # unmap
             tmp_loc_t.fill_(0)
             tmp_conf_t.fill_(-1)
@@ -89,7 +90,7 @@ class ODMLoss(nn.Module):
         pos_idx = pos.unsqueeze(pos.dim()).expand_as(odm_loc_data)
         loc_pred = odm_loc_data[pos_idx].view(-1, 4)
         loc_t = loc_t[pos_idx].view(-1, 4)
-        loss_l = F.smooth_l1_loss(loc_pred, loc_t, size_average=False)
+        loss_l = functional.smooth_l1_loss(loc_pred, loc_t, size_average=False)
         
         # Compute max conf across batch for hard negative mining
         batch_conf = odm_conf_data.view(-1, self.num_classes)
@@ -127,12 +128,12 @@ class ODMLoss(nn.Module):
         # 1 for positives
         targets_weighted = conf_t[(pos + neg).gt(0)]
         # final classification loss
-        loss_c = F.cross_entropy(conf_pred, targets_weighted, size_average=False)
+        loss_c = functional.cross_entropy(conf_pred, targets_weighted, size_average=False)
         
         # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + alpha*Lloc(x,l,g)) / N
         
-        N = num_pos.data.sum()
-        loss_l /= N
-        loss_c /= N
+        total_num = num_pos.data.sum()
+        loss_l /= total_num
+        loss_c /= total_num
         
         return loss_l, loss_c

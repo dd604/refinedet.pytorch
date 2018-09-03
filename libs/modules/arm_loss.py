@@ -2,18 +2,17 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-from libs.modules.box_utils import match, log_sum_exp
+import torch.nn.functional as functional
+from libs.utils.box_utils import match, log_sum_exp
 
 class ARMLoss(nn.Module):
     """
     """
-    
     def __init__(self, overlap_thresh, neg_pos_ratio, variance):
         super(ARMLoss, self).__init__()
         self.overlap_thresh = overlap_thresh
         self.num_classes = 2
         self.negpos_ratio = neg_pos_ratio
-        # self.neg_overlap = neg_overlap
         self.variance = variance
         # self.variance = cfg['variance']
     
@@ -65,7 +64,7 @@ class ARMLoss(nn.Module):
         pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_data)
         loc_p = loc_data[pos_idx].view(-1, 4)
         loc_t = loc_t[pos_idx].view(-1, 4)
-        loss_l = F.smooth_l1_loss(loc_p, loc_t, size_average=False)
+        loss_l = functional.smooth_l1_loss(loc_p, loc_t, size_average=False)
         
         # Compute max conf across batch for hard negative mining
         batch_conf = conf_data.view(-1, self.num_classes).clone()
@@ -90,12 +89,12 @@ class ARMLoss(nn.Module):
         # gt(0) ?
         conf_p = conf_data[(pos_idx + neg_idx).gt(0)].view(-1, self.num_classes)
         targets_weighted = conf_t[(pos + neg).gt(0)]
-        loss_c = F.cross_entropy(conf_p, targets_weighted, size_average=False)
+        loss_c = functional.cross_entropy(conf_p, targets_weighted, size_average=False)
         
         # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + ��Lloc(x,l,g)) / N
         # only positives ?
-        N = num_pos.data.sum()
-        loss_l /= N
-        loss_c /= N
+        total_num = num_pos.data.sum()
+        loss_l /= total_num
+        loss_c /= total_num
         
         return loss_l, loss_c

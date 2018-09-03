@@ -1,70 +1,78 @@
-import torch
-from torch.autograd import Function, Variable
-import torch.nn.functional as functional
-from libs.modules.box_utils import decode, nms, refine_priors
-from data import voc as cfg
-
 import sys
+import torch
+import torch.nn as nn
+from torch.autograd import Variable
+import torch.nn.functional as functional
+from libs.utils.box_utils import decode, nms, refine_priors
+
 sys.dont_write_bytecode = True
 
-
-class Detect(Function):
-    """At test time, Detect is the final layer of SSD.  Decode location preds,
-    apply non-maximum suppression to location predictions based on conf
-    scores and threshold to a top_k number of output predictions for both
-    confidence score and locations.
+class Detect(nn.Module):
+    """At test time, Detect is the final layer of RefineDet.
+    Decode location preds, apply non-maximum suppression to location predictions
+    based on conf scores and threshold to a top_k number of output predictions
+    for both confidence score and locations.
     """
-    def __init__(self, num_classes, top_k, prior_threshold,
-                 conf_thresh, nms_thresh):
+    def __init__(self, num_classes, top_k, pos_prior_threshold,
+                 detect_conf_thresh, nms_thresh, arm_variance,
+                 odm_variance):
         """
-        prior_threshold: to filter negatives, tipically 0.99
-        conf_thresh: for results
+        :param num_classes: number of classes.
+        :param top_k: keep the top k of detection results.
+        :param pos_prior_threshold: filter priors, tipically 0.99. For a prior whoes positive
+            probability is less than pos_prior_threshold will be missed.
+        :param detect_conf_thresh: keep detections whoes confidence is big.
+        :param nms_thresh:
         """
         self.num_classes = num_classes
         self.top_k = top_k
-        self.prior_threshold = prior_threshold
+        self.pos_prior_threshold = pos_prior_threshold
         # Parameters used in nms.
+        self.detect_conf_thresh = detect_conf_thresh
         self.nms_thresh = nms_thresh
-        if nms_thresh <= 0:
-            raise ValueError('nms_threshold must be non negative.')
-        self.conf_thresh = conf_thresh
-        self.variance = cfg['variance']
+        self.arm_variance = arm_variance
+        self.variance = odm_variance
 
-    def forward(self, bi_loc_data, bi_conf_data, multi_loc_data,
-                multi_conf_data, prior_data):
+    def forward(self, bi_predictions, multi_predictions, prior_data):
         """
-        Args:
-            bi_loc_data: (tensor) binary location preds from loc layers
-                Shape: [batch,num_priors*4]
-            bi_conf_data: (tensor) Shape: Conf preds from conf layers
-                Shape: [batch*num_priors,num_classes]
-            prior_data: (tensor) Prior boxes and variances from priorbox layers
-                Shape: [num_priors,4]
+        :param bi_predictions:
+            0).bi_loc_data: (tensor) location predictions from loc layers of ARM
+            Shape: [batch, num_priors*4]
+            1).bi_conf_data: (tensor) confidence predictions from conf layers of ARM
+            Shape: [batch*num_priors, 2]
+        :param multi_predictions:
+            0).multi_loc_data: (tensor) location predictions from loc layers of ODM
+            Shape: [batch, num_priors*4]
+            1).multi_conf_data: (tensor) confidence predictions from conf layers of ODM
+            Shape: [batch*num_priors, num_classes]
+        :param prior_data: (tensor) Prior boxes and from priorbox layers
+            Shape: [num_priors, 4]
         """
         # import pdb
         # pdb.set_trace()
-        num = bi_loc_data.size(0)  # batch size
+        # batch size
+        bi_loc_data, bi_conf_data = bi_predictions[0], bi_predictions[1]
+        multi_loc_data, multi_conf_data = multi_predictions[0], \
+                                          multi_predictions[1]
+        num = bi_loc_data.size(0)
         num_priors = prior_data.size(0)
         output = torch.zeros(num, self.num_classes, self.top_k, 5)
         bi_conf_preds = bi_conf_data.view(num, num_priors, 2)
         multi_conf_preds = multi_conf_data.view(num, num_priors,
                                                 self.num_classes)
         bi_conf_preds_variable = Variable(bi_conf_preds, requires_grad=False)
-        refined_priors = refine_priors(bi_loc_data, prior_data, self.variance)
+        refined_priors = refine_priors(bi_loc_data, prior_data, self.arm_variance)
         # select
         # Decode predictions into bboxes.
         for i in range(num):
             # For each class, perform nms
             # softmax
-            # 
 #             pdb.set_trace()
             # print(type(bi_conf_preds_variable))
             bi_conf_scores = functional.softmax(bi_conf_preds_variable[i],
                                                 dim=-1).data.clone()
-            # ignore priors whose negative score is big
-#             ignore_flag = bi_conf_scores[:, 0] > self.prior_threshold
-#             index = torch.nonzero(1 - ignore_flag)[:, 0]
-            flag = bi_conf_scores[:, 1] >= (1 - self.prior_threshold)
+            # ignore priors whose positive score is small
+            flag = bi_conf_scores[:, 1] >= self.pos_prior_threshold
             index = torch.nonzero(flag)[:, 0]
             # decoded boxes
             cur_refined_priors = refined_priors[i]
@@ -75,7 +83,7 @@ class Detect(Function):
             
             # pdb.set_trace()
             for cl in range(1, self.num_classes):
-                c_mask = multi_conf_scores[cl].gt(self.conf_thresh)
+                c_mask = multi_conf_scores[cl].gt(self.detect_conf_thresh)
                 scores = multi_conf_scores[cl][c_mask]
                 if scores.dim() == 0:
                     continue
@@ -92,4 +100,5 @@ class Detect(Function):
         _, idx = flt[:, :, 0].sort(1, descending=True)
         _, rank = idx.sort(1)
         flt[(rank < self.top_k).unsqueeze(-1).expand_as(flt)].fill_(0)
+        
         return output
