@@ -1,7 +1,7 @@
 import torch
 from torch.autograd import Function, Variable
 import torch.nn.functional as functional
-from ..box_utils import decode, nms
+from libs.modules.box_utils import decode, nms
 from data import voc as cfg
 import pdb
 

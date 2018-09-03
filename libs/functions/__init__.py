@@ -1,5 +1,5 @@
 from .detection import Detect
-from .prior_box import PriorBox
+from libs.modules.prior_box import PriorBox
 
 
 __all__ = ['Detect', 'PriorBox']

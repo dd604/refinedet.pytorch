@@ -1,9 +1,8 @@
 import torch
 from torch.autograd import Function, Variable
 import torch.nn.functional as functional
-from ..box_utils import decode, nms, refine_priors
+from libs.modules.box_utils import decode, nms, refine_priors
 from data import voc as cfg
-import pdb
 
 import sys
 sys.dont_write_bytecode = True
@@ -15,14 +14,13 @@ class Detect(Function):
     scores and threshold to a top_k number of output predictions for both
     confidence score and locations.
     """
-    def __init__(self, num_classes, bkg_label, top_k, prior_threshold,
+    def __init__(self, num_classes, top_k, prior_threshold,
                  conf_thresh, nms_thresh):
         """
         prior_threshold: to filter negatives, tipically 0.99
         conf_thresh: for results
         """
         self.num_classes = num_classes
-        self.background_label = bkg_label
         self.top_k = top_k
         self.prior_threshold = prior_threshold
         # Parameters used in nms.
