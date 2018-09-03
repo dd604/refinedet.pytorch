@@ -1,17 +1,21 @@
 import os
-import sys
-
-sys.path.append()
-from libs.utils.augmentations import SSDAugmentation
-from libs.modules import arm_loss, odm_loss
-from network import build_refinedet
-import os
 import time
 import torch
 from torch.autograd import Variable
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
 import torch.utils.data as data
+from libs.utils.augmentations import SSDAugmentation
+from libs.networks.vgg_refinedet import VGGRefineDet
+from libs.dataset.config import voc, coco, MEANS
+from libs.dataset.coco import COCO_ROOT, COCODetection, COCO_CLASSES
+from libs.dataset.voc0712 import VOC_ROOT, VOCDetection, \
+    VOCAnnotationTransform
+from libs.datset import *
+
+
+
+
 import argparse
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
@@ -71,6 +75,11 @@ if not os.path.exists(args.save_folder):
     os.mkdir(args.save_folder)
 
 
+viz = None
+if args.visdom:
+    import visdom
+    viz = visdom.Visdom()
+    
 def train():
     if args.dataset == 'COCO':
         if args.dataset_root == VOC_ROOT:
@@ -93,37 +102,25 @@ def train():
                                transform=SSDAugmentation(cfg['min_dim'],
                                                          MEANS))
 
-    if args.visdom:
-        import visdom
-        viz = visdom.Visdom()
     # train
     # positive > this
-    # objectness_threshold = 0.01
-    negative_prior_threshold = 0.99
-    refinedet = build_refinedet('train', cfg, cfg['min_dim'],
-                                cfg['num_classes'],
-                                negative_prior_threshold)
-    net = refinedet
+    vgg_refinedet = VGGRefineDet(cfg['num_classes'],
+                                 'train', cfg)
+    vgg_refinedet.create_architecture(
+        os.path.join(args.save_folder, args.basenet), pretrained=True
+    )
+    net = vgg_refinedet
     if args.cuda:
         # refinedet = refinedet.cuda(device_ids)
         # net = torch.nn.DataParallel(refinedet,
         #         device_ids=device_ids).cuda(device_ids[0])
-        net = torch.nn.DataParallel(refinedet).cuda()
+        net = torch.nn.DataParallel(vgg_refinedet).cuda()
         cudnn.benchmark = True
       
     if args.resume:
         print('Resuming training, loading {}...'.format(args.resume))
-        refinedet.load_weights(args.resume)
-    else:
-        vgg_weights = torch.load(args.save_folder + args.basenet)
-        print('Loading base network...')
-        # pdb.set_trace()
-        # for k, v in vgg_weights.items():
-        #     print(k, v.shape)
-        # refinedet.vgg.load_state_dict(vgg_weights)
+        vgg_refinedet.load_weights(args.resume)
 
-  
-    
     # pdb.set_trace()
     params = net.state_dict()
     # for k, v in params.items():
@@ -132,13 +129,7 @@ def train():
         
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
                           weight_decay=args.weight_decay)
-    bi_criterion = BiBoxLoss(0.5, True, 0, True, 3, 0.5, args.cuda)
-    multi_criterion = MultiBoxLoss(cfg['num_classes'], 0.5, True, 0, True,
-                                   3, 0.5, negative_prior_threshold, args.cuda)
-
     net.train()
-    # loss counters
-    print('Loading the dataset...')
     print('Training RefineDet on:', dataset.name)
     print('Using the specified args:')
     print(args)
@@ -169,10 +160,10 @@ def train():
     # number of epoch
     epoch_num = cfg['max_iter'] // iter_datasets
     iteration = 0
-    bi_loc_loss = 0
-    bi_conf_loss = 0
-    multi_loc_loss = 0
-    multi_conf_loss = 0
+    total_bi_loc_loss = 0
+    total_bi_conf_loss = 0
+    total_multi_loc_loss = 0
+    total_multi_conf_loss = 0
     for epoch in range(0, epoch_num):
         if args.visdom and epoch != 0:
             update_vis_plot(epoch, bi_loc_loss, bi_conf_loss,
@@ -202,18 +193,16 @@ def train():
             bi_out, multi_out, priors = net(images)
             # backprop
             optimizer.zero_grad()
-            bi_loss_l, bi_loss_c = bi_criterion(bi_out, priors, targets)
-            multi_loss_l, multi_loss_c = multi_criterion(bi_out, multi_out, priors,
-                                                         targets)
-            # loss = bi_loss_l + bi_loss_c
-            loss = bi_loss_l + bi_loss_c + multi_loss_l + multi_loss_c
+            bi_loss_loc, bi_loss_conf, multi_loss_loc, multi_loss_conf = \
+                net(images, targets)
+            loss = bi_loss_loc + bi_loss_conf + multi_loss_loc + multi_loss_conf
             loss.backward()
             optimizer.step()
             t1 = time.time()
-            bi_loc_loss += bi_loss_l.data[0]
-            bi_conf_loss += bi_loss_c.data[0]
-            multi_loc_loss += multi_loss_l.data[0]
-            multi_conf_loss += multi_loss_c.data[0]
+            total_bi_loc_loss += bi_loss_loc.data[0]
+            total_bi_conf_loss += bi_loss_conf.data[0]
+            total_multi_loc_loss += multi_loss_loc.data[0]
+            total_multi_conf_loss += multi_loss_conf.data[0]
             
             if iteration % 10 == 0:
                 print('timer: %.4f sec.' % (t1 - t0))
@@ -223,19 +212,20 @@ def train():
                 #       ' || Loss: %.4f ||' % (loss.data[0]), end=' ')
     
             if args.visdom:
-                update_vis_plot(iteration, bi_loss_l.data[0], bi_loss_c.data[0],
-                                multi_loss_l.data[0], multi_loss_c.data[0],
-                                iter_plot, epoch_plot, 'append')
+                update_vis_plot(
+                    iteration, bi_loss_loc.data[0], bi_loss_conf.data[0],
+                    multi_loss_loc.data[0], multi_loss_conf.data[0],
+                    iter_plot, epoch_plot, 'append')
     
             if iteration != 0 and iteration % 2000 == 0:
                 print('Saving state, iter:', iteration)
-                torch.save(refinedet.state_dict(), 'weights/refinedet320_' +
+                torch.save(vgg_refinedet.state_dict(), 'weights/refinedet320_' +
                            args.dataset + '_' +
                            repr(iteration) + '.pth')
 
             iteration += 1
         
-    torch.save(refinedet.state_dict(),
+    torch.save(vgg_refinedet.state_dict(),
                args.save_folder + '' + args.dataset + '.pth')
             
             
