@@ -1,6 +1,6 @@
 import os
 import time
-import torch
+import argparse
 from torch.autograd import Variable
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
@@ -11,12 +11,9 @@ from libs.dataset.config import voc, coco, MEANS
 from libs.dataset.coco import COCO_ROOT, COCODetection, COCO_CLASSES
 from libs.dataset.voc0712 import VOC_ROOT, VOCDetection, \
     VOCAnnotationTransform
-from libs.datset import *
+from libs.dataset import *
 
-
-
-
-import argparse
+import pdb
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
@@ -104,8 +101,9 @@ def train():
 
     # train
     # positive > this
-    vgg_refinedet = VGGRefineDet(cfg['num_classes'],
-                                 'train', cfg)
+    pdb.set_trace()
+    vgg_refinedet = VGGRefineDet(cfg['num_classes'], cfg)
+
     vgg_refinedet.create_architecture(
         os.path.join(args.save_folder, args.basenet), pretrained=True
     )

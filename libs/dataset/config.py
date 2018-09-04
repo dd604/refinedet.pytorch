@@ -24,6 +24,7 @@ voc = {
     'mbox': [3, 3, 3, 3],  # number of boxes per feature map location
     'variance': [0.1, 0.2],
     'clip': True,
+    'tcb_channles': 256,
     'gt_overlap_threshold': 0.5,
     'neg_pos_ratio': 3,
     # prior with positive probility less than this will be ignored
@@ -49,6 +50,7 @@ coco = {
     # 'variance': [0.1, 0.1, 0.2, 0.2],
     'variance': [0.1, 0.2],
     'clip': True,
+    'tcb_channles': 256,
     'gt_overlap_threshold': 0.5,
     'neg_pos_ratio': 3,
     # prior with positive probility less than this will be ignored

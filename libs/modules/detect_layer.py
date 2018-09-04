@@ -24,6 +24,7 @@ class Detect(nn.Module):
         :param detect_conf_thresh: keep detections whoes confidence is big.
         :param nms_thresh:
         """
+        super(Detect, self).__init__()
         self.num_classes = num_classes
         self.top_k = top_k
         self.pos_prior_threshold = pos_prior_threshold

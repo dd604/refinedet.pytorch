@@ -8,16 +8,17 @@ from libs.modules.prior_box import PriorBox
 from libs.modules.detect_layer import Detect
 from libs.modules.arm_loss import ARMLoss
 from libs.modules.odm_loss import ODMLoss
-
+import pdb
 # from data.config import cfg as _cfg
 
 
 class RefineDet(nn.Module):
     """
     """
-    def __init__(self, num_classes, phase, cfg):
+    def __init__(self, num_classes, cfg):
+        super(RefineDet, self).__init__()
+        # pdb.set_trace()
         self.num_classes = num_classes
-        self.phase = phase
         self.cfg = cfg
         self.prior_layer = PriorBox(self.cfg)
         # priors are on cpu, their type will be converted accordingly in later
@@ -112,7 +113,11 @@ class RefineDet(nn.Module):
             forward_features[2], forward_features[3])
         
         # pyramid features
-        p4 = self.pyramid_layer4(c4)
+        # p4 = self.pyramid_layer4(c4)
+        # do not overwrite c4
+        p4 = self.pyramid_layer4[0](c4)
+        for k in xrange(1, len(self.pyramid_layer4)):
+            p4 = self.pyramid_layer4[k](p4)
         p3 = self.pyramid_layer3(c3, p4)
         p2 = self.pyramid_layer2(c2, p3)
         p1 = self.pyramid_layer1(c1, p2)
@@ -125,7 +130,7 @@ class RefineDet(nn.Module):
         self.bi_predictions = (bi_loc_pred, bi_conf_pred)
         self.multi_predictions = (multi_loc_pred, multi_conf_pred)
         
-        if self.phase == 'test':
+        if self.training == False:
             return self.detect(self.bi_predictions, self.multi_predictions,
                                self.priors)
         elif targets is not None:
@@ -199,10 +204,12 @@ class RefineDet(nn.Module):
         conf_layers = []
         num_classes = 2
         # relu has no 'out_channels' attribution.
-        for k, v in enumerate(self.layer_out_channels):
-            loc_layers += [nn.Conv2d(v, _cfg.priors_cfg[k] * 4,
+        assert (len(self.layers_out_channels) == len(self.cfg['mbox']),
+                'Length of layers_out_channels must match length of cfg["mbox"]')
+        for k, v in enumerate(self.layers_out_channels):
+            loc_layers += [nn.Conv2d(v, self.cfg['mbox'][k] * 4,
                                      kernel_size=3, padding=1)]
-            conf_layers += [nn.Conv2d(v, _cfg.priors_cfg[k] * num_classes,
+            conf_layers += [nn.Conv2d(v, self.cfg['mbox'][k] * num_classes,
                                       kernel_size=3, padding=1)]
         self.bi_conf = nn.ModuleList(conf_layers)
         self.bi_loc = nn.ModuleList(loc_layers)
@@ -212,12 +219,12 @@ class RefineDet(nn.Module):
         conf_layers = []
         num_classes = self.num_classes
         # relu has no 'out_channels' attribution.
-        for k in xrange(len(self.layer_out_channels)):
+        for k in xrange(len(self.layers_out_channels)):
             loc_layers += [nn.Conv2d(self.internal_channels,
-                                     _cfg.priors_cfg[k] * 4,
+                                     self.cfg['mbox'][k] * 4,
                                      kernel_size=3, padding=1)]
             conf_layers += [nn.Conv2d(self.internal_channels,
-                                      _cfg.priors_cfg[k] * num_classes,
+                                      self.cfg['mbox'][k] * num_classes,
                                       kernel_size=3, padding=1)]
         self.multi_conf = nn.ModuleList(conf_layers)
         self.multi_loc = nn.ModuleList(loc_layers)
