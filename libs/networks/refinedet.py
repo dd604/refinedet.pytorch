@@ -23,7 +23,6 @@ class RefineDet(nn.Module):
         self.prior_layer = PriorBox(self.cfg)
         # priors are on cpu, their type will be converted accordingly in later
         self.priors = Variable(self.prior_layer.forward(), volatile=True)
-        # pdb.set_trace()
         # vgg backbone
         self.base = None
         self.extra = None
@@ -108,10 +107,11 @@ class RefineDet(nn.Module):
           targets:
         """
         # forward features
-        forward_features = self._calculate_forward_features(x)
+        
+        forward_features = self._get_forward_features(x)
+        # print([k.shape for k in forward_features])
         (c1, c2, c3, c4) = (forward_features[0], forward_features[1], \
             forward_features[2], forward_features[3])
-        
         # pyramid features
         # p4 = self.pyramid_layer4(c4)
         # do not overwrite c4
@@ -122,6 +122,7 @@ class RefineDet(nn.Module):
         p2 = self.pyramid_layer2(c2, p3)
         p1 = self.pyramid_layer1(c1, p2)
         pyramid_features = [p1, p2, p3, p4]
+        # print([k.shape for k in pyramid_features])
         if x.is_cuda:
             self.priors.cuda()
         # heads
@@ -146,7 +147,7 @@ class RefineDet(nn.Module):
         
         return bi_loss_loc, bi_loss_conf, multi_loss_loc, multi_loss_conf
     
-    def _calculate_forward_features(self, x):
+    def _get_forward_features(self, x):
         """
         One should rewrite this function and calculate forward features by layer1-4
         """
@@ -158,8 +159,7 @@ class RefineDet(nn.Module):
         bi_loc_pred = list()
         bi_conf_pred = list()
         
-        #     pdb.set_trace()
-        # apply multibox head to source layers
+        # apply binary class head to source layers
         num_classes = 2
         for (x, l, c) in zip(forward_features, self.bi_loc, self.bi_conf):
             bi_loc_pred.append(l(x).permute(0, 2, 3, 1).contiguous())
@@ -169,7 +169,7 @@ class RefineDet(nn.Module):
                                  for o in bi_loc_pred], 1)
         bi_conf_pred = torch.cat([o.view(o.size(0), -1)
                                   for o in bi_conf_pred], 1)
-        bi_loc_pred = bi_loc_pred.view(bi_loc_pred.size(0), -1, 4),
+        bi_loc_pred = bi_loc_pred.view(bi_loc_pred.size(0), -1, 4)
         bi_conf_pred = bi_conf_pred.view(bi_conf_pred.size(0), -1, num_classes)
         
         return bi_loc_pred, bi_conf_pred
@@ -179,21 +179,16 @@ class RefineDet(nn.Module):
         # odm, object detection model
         multi_loc_pred = list()
         multi_conf_pred = list()
-        # print([cur.size() for cur in pyramid_features])
         # pdb.set_trace()
         for (x, l, c) in zip(pyramid_features, self.multi_loc, self.multi_conf):
-            # print(l(x).size())
-            # print(c(x).size())
             multi_loc_pred.append(l(x).permute(0, 2, 3, 1).contiguous())
             multi_conf_pred.append(c(x).permute(0, 2, 3, 1).contiguous())
-            # print(multi_loc_pred[-1].size())
-            # print(multi_conf_pred[-1].size())
+        # (batch, N*pred)
         multi_loc_pred = torch.cat([o.view(o.size(0), -1)
                                     for o in multi_loc_pred], 1)
         multi_conf_pred = torch.cat([o.view(o.size(0), -1)
                                      for o in multi_conf_pred], 1)
-
-        multi_loc_pred = multi_loc_pred.view(multi_loc_pred.size(0), -1, 4),
+        multi_loc_pred = multi_loc_pred.view(multi_loc_pred.size(0), -1, 4)
         multi_conf_pred = multi_conf_pred.view(multi_conf_pred.size(0), -1,
                                                self.num_classes)
         

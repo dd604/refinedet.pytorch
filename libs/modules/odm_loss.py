@@ -5,6 +5,7 @@ from torch.autograd import Variable
 import torch.nn.functional as functional
 from libs.utils.box_utils import log_sum_exp, match_and_encode, refine_priors
 
+import pdb
 
 class ODMLoss(nn.Module):
     """
@@ -20,18 +21,15 @@ class ODMLoss(nn.Module):
         self.variance = variance
         self.arm_variance = arm_variance
     
-    def forward(self, bi_prediction, multi_prediction, priors, targets):
+    def forward(self, bi_predictions, multi_predictions, priors, targets):
         """Multibox Loss
         """
-        # import pdb
-        # pdb.set_trace()
-        
-        arm_loc_data = bi_prediction[0].data
+        arm_loc_data = bi_predictions[0].data
         # softmax
         # arm_conf_data = functional.softmax(bi_prediction[1].data, -1)
-        arm_prob_data = functional.softmax(bi_prediction[1], -1).data
+        arm_score_data = functional.softmax(bi_predictions[1], -1).data
         # variable
-        odm_loc_data, odm_conf_data = multi_prediction[0], multi_prediction[1]
+        odm_loc_data, odm_conf_data = multi_predictions[0], multi_predictions[1]
         num = odm_loc_data.size(0)
         num_priors = priors.size(0)
         
@@ -59,15 +57,20 @@ class ODMLoss(nn.Module):
             # use confidence data of arm
             cur_priors = refined_priors[idx]
             # softmax arm_conf_data[idx].
-            arm_positive_probs = arm_prob_data[idx, :, 1]
-            reserve_flag = arm_positive_probs > self.pos_prior_threshold
+            cur_positive_score = arm_score_data[idx, :, 1]
+            reserve_flag = cur_positive_score > self.pos_prior_threshold
+            # very little positive.
+            if torch.sum(reserve_flag) < num_priors * 0.01:
+                reserve_flag = cur_positive_score > 0.5
+            # pdb.set_trace()
+            print(torch.sum(reserve_flag))
             index = torch.nonzero(reserve_flag)[:, 0]
             used_priors = cur_priors[index]
             # print(used_priors.shape)
             # the type of used_conf_t is the same as lables.
             # need to convert it to LongTensor
-            used_loc_t, used_conf_t = match_and_encode(self.threshold, truths,
-                               used_priors, self.variance, labels)
+            used_loc_t, used_conf_t = match_and_encode(
+                self.overlap_thresh, truths, used_priors, self.variance, labels)
             # unmap
             tmp_loc_t.fill_(0)
             tmp_conf_t.fill_(-1)

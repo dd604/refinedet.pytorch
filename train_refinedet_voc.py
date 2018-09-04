@@ -30,7 +30,7 @@ parser.add_argument('--dataset_root', default='/root/dataset/voc/VOCdevkit/',
                     help='Dataset root directory path')
 parser.add_argument('--basenet', default='vgg16_reducedfc.pth',
                     help='Pretrained base model')
-parser.add_argument('--batch_size', default=32, type=int,
+parser.add_argument('--batch_size', default=8, type=int,
                     help='Batch size for training')
 parser.add_argument('--resume', default=None, type=str,
                     help='Checkpoint state_dict file to resume training from')
@@ -94,19 +94,19 @@ def train():
             parser.error('Must specify dataset if specifying dataset_root')
         cfg = voc
         dataset = VOCDetection(root=args.dataset_root,
-                               image_sets=[('2007', 'trainval'),
-                                           ('2012', 'trainval')],
+                               image_sets=[('2007', 'trainval')],
+                               # image_sets=[('2007', 'trainval'),
+                               #             ('2012', 'trainval')],
                                transform=SSDAugmentation(cfg['min_dim'],
                                                          MEANS))
 
     # train
     # positive > this
-    pdb.set_trace()
+    # pdb.set_trace()
     vgg_refinedet = VGGRefineDet(cfg['num_classes'], cfg)
 
     vgg_refinedet.create_architecture(
-        os.path.join(args.save_folder, args.basenet), pretrained=True
-    )
+        os.path.join(args.save_folder, args.basenet), pretrained=True)
     net = vgg_refinedet
     if args.cuda:
         # refinedet = refinedet.cuda(device_ids)
@@ -188,7 +188,6 @@ def train():
             # forward
             t0 = time.time()
             # pdb.set_trace()
-            bi_out, multi_out, priors = net(images)
             # backprop
             optimizer.zero_grad()
             bi_loss_loc, bi_loss_conf, multi_loss_loc, multi_loss_conf = \
@@ -202,7 +201,7 @@ def train():
             total_multi_loc_loss += multi_loss_loc.data[0]
             total_multi_conf_loss += multi_loss_conf.data[0]
             
-            if iteration % 10 == 0:
+            if iteration % 5 == 0:
                 print('timer: %.4f sec.' % (t1 - t0))
                 print('iter ' + repr(iteration) +
                       ' || Loss: %.4f ||' % (loss.data[0]) + ' ')
