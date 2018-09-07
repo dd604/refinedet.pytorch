@@ -59,11 +59,6 @@ class ODMLoss(nn.Module):
             # softmax arm_conf_data[idx].
             cur_positive_score = arm_score_data[idx, :, 1]
             reserve_flag = cur_positive_score > self.pos_prior_threshold
-            # very little positive.
-            if torch.sum(reserve_flag) < num_priors * 0.01:
-                reserve_flag = cur_positive_score > 0.5
-            # pdb.set_trace()
-            print(torch.sum(reserve_flag))
             index = torch.nonzero(reserve_flag)[:, 0]
             used_priors = cur_priors[index]
             # print(used_priors.shape)

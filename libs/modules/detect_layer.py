@@ -19,8 +19,8 @@ class Detect(nn.Module):
         """
         :param num_classes: number of classes.
         :param top_k: keep the top k of detection results.
-        :param pos_prior_threshold: filter priors, tipically 0.99. For a prior whoes positive
-            probability is less than pos_prior_threshold will be missed.
+        :param pos_prior_threshold: filter priors, tipically 0.01. For a prior whoes positive
+            score (probability) is less than pos_prior_threshold will be missed.
         :param detect_conf_thresh: keep detections whoes confidence is big.
         :param nms_thresh:
         """
