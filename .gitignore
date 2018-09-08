@@ -127,7 +127,8 @@ data/ssd_dataloader.py
 # pylint
 .pylintrc
 
-nohup*
+nohup.*
+*.out
 
 refinedet320_120000/
 refinedet320_120000.pth
