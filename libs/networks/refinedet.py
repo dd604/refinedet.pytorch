@@ -1,5 +1,5 @@
 # encoding: utf-8
-
+import os
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -107,7 +107,6 @@ class RefineDet(nn.Module):
           targets:
         """
         # forward features
-        
         forward_features = self._get_forward_features(x)
         # print([k.shape for k in forward_features])
         (c1, c2, c3, c4) = (forward_features[0], forward_features[1], \
@@ -132,8 +131,8 @@ class RefineDet(nn.Module):
         self.multi_predictions = (multi_loc_pred, multi_conf_pred)
         
         if self.training == False:
-            return self.detect(self.bi_predictions, self.multi_predictions,
-                               self.priors)
+            return self.detect_layer(self.bi_predictions, self.multi_predictions,
+                               self.priors.data)
         elif targets is not None:
             return self.calculate_loss(targets)
     

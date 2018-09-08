@@ -9,13 +9,13 @@ import torch
 import torch.nn as nn
 import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
-from data import VOC_ROOT, VOCAnnotationTransform, VOCDetection, BaseTransform
-from data import VOC_CLASSES as labelmap
-from data import *
+from libs.dataset import VOC_ROOT, VOCAnnotationTransform, VOCDetection, BaseTransform
+from libs.dataset import VOC_CLASSES as labelmap
+from libs.dataset import *
 import torch.utils.data as data
 
 # from ssd import build_ssd
-from refinedet import build_refinedet
+from libs.networks.vgg_refinedet import VGGRefineDet
 import sys
 import os
 import time
@@ -397,7 +397,8 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
         if args.cuda:
             x = x.cuda()
         _t['im_detect'].tic()
-        detections = net(x).data
+        detections = net(x)
+        # detections = net(x).data
         # detect_time = _t['im_detect'].toc(average=False)
         detect_time = _t['im_detect'].toc(average=True)
         
@@ -438,9 +439,16 @@ if __name__ == '__main__':
     # load net
     num_classes = len(labelmap) + 1                      # +1 for background
     # net = build_ssd('test', 300, num_classes)            # initialize SSD
-    net = build_refinedet('test', voc, 320, 21)
-    net.load_state_dict(torch.load(args.trained_model))
+    # net = build_refinedet('test', voc, 320, 21)
+    net = VGGRefineDet(voc['num_classes'], voc)  # initialize SSD
+    net.create_architecture()
     net.eval()
+    net = net.cuda()
+    # load weights
+    weights_path = './weights/refinedet320_VOC_60000.pth'
+    weights = torch.load(weights_path)
+    net.load_state_dict(weights)
+    
     print('Finished loading model!')
     # load data
     dataset = VOCDetection(args.voc_root, [('2007', set_type)],
@@ -451,5 +459,5 @@ if __name__ == '__main__':
         cudnn.benchmark = True
     # evaluation
     test_net(args.save_folder, net, args.cuda, dataset,
-             BaseTransform(net.size, dataset_mean), args.top_k, 320,
+             BaseTransform(320, dataset_mean), args.top_k, 320,
              thresh=args.confidence_threshold)

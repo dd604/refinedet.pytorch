@@ -1,3 +1,6 @@
+# encoding: utf-8
+
+import os
 import torch
 import torch.nn as nn
 
@@ -21,7 +24,7 @@ class VGGRefineDet(_RefineDet):
         self.extra = nn.ModuleList(add_extra_layers())
         self.pretrained = pretrained
         self.model_path = model_path
-        if self.pretrained == True:
+        if self.pretrained == True and model_path is not None:
             print("Loading pretrained weights from %s" % (self.model_path))
             state_dict = torch.load(self.model_path)
             self.base.load_state_dict({k: v for k, v in state_dict.items()
@@ -72,3 +75,13 @@ class VGGRefineDet(_RefineDet):
         forward_features.append(x)
         
         return forward_features
+    
+    # def load_weights(self, weights_path):
+    #     other, ext = os.path.splitext(weights_path)
+    #     if ext in ('.pkl', '.pth'):
+    #         print('Loading weights into state dict...')
+    #         self.load_state_dict(torch.load(
+    #             weights_path, map_location=lambda storage, loc: storage))
+    #         print('Finished!')
+    #     else:
+    #         print('Sorry only .pth and .pkl files supported.')
