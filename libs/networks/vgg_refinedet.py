@@ -29,7 +29,12 @@ class VGGRefineDet(_RefineDet):
             state_dict = torch.load(self.model_path)
             self.base.load_state_dict({k: v for k, v in state_dict.items()
                                        if k in self.base.state_dict()})
-            
+            # fix weights
+            for param in self.base.parameters():
+                if not (param in state_dict.items()):
+                    continue
+                param.requires_grad = False
+
         self.layers_out_channels = layers_out_channels
     
         # construct base network
@@ -42,8 +47,10 @@ class VGGRefineDet(_RefineDet):
         self.layer3 = nn.ModuleList(base_layers[key_layer_ids[1]:])
         self.layer4 = nn.ModuleList(list(self.extra.children()))
         # L2Norm has been initialized while building.
-        self.L2Norm_conv4_3 = L2Norm(self.layers_out_channels[0], 8)
-        self.L2Norm_conv5_3 = L2Norm(self.layers_out_channels[1], 10)
+        # self.L2Norm_conv4_3 = L2Norm(self.layers_out_channels[0], 20)
+        # self.L2Norm_conv5_3 = L2Norm(self.layers_out_channels[1], 16)
+        self.L2Norm_conv4_3 = L2Norm(self.layers_out_channels[0], 10)
+        self.L2Norm_conv5_3 = L2Norm(self.layers_out_channels[1], 8)
 
         # build pyramid layers and other parts
         super(VGGRefineDet, self)._init_part_modules()
@@ -76,12 +83,3 @@ class VGGRefineDet(_RefineDet):
         
         return forward_features
     
-    # def load_weights(self, weights_path):
-    #     other, ext = os.path.splitext(weights_path)
-    #     if ext in ('.pkl', '.pth'):
-    #         print('Loading weights into state dict...')
-    #         self.load_state_dict(torch.load(
-    #             weights_path, map_location=lambda storage, loc: storage))
-    #         print('Finished!')
-    #     else:
-    #         print('Sorry only .pth and .pkl files supported.')

@@ -28,7 +28,7 @@ voc = {
     'gt_overlap_threshold': 0.5,
     'neg_pos_ratio': 3,
     # prior with positive probility less than this will be ignored
-    'pos_prior_threshold': 0.01,
+    'pos_prior_threshold': 0.0001,
     'top_k': 200,
     'detection_nms': 0.45,
     'detection_conf_threshold': 0.6,
@@ -54,7 +54,7 @@ coco = {
     'gt_overlap_threshold': 0.5,
     'neg_pos_ratio': 3,
     # prior with positive probility less than this will be ignored
-    'pos_prior_threshold': 0.01,
+    'pos_prior_threshold': 0.0001,
     'top_k': 200,
     'detection_nms': 0.45,
     'detection_conf_threshold': 0.6,

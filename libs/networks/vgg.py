@@ -71,10 +71,10 @@ def make_vgg_layers(cfg=base, batch_norm=False):
             else:
                 layers += [conv2d, nn.ReLU(inplace=True)]
             in_channels = v
-            
+    
     # after pool5
-    # dilation 6.
-    dilation = 3
+    dilation = 6
+    # dilation = 3
     kernel_size = 3
     padding = int((kernel_size + (dilation - 1) * (kernel_size - 1)) - 1) / 2
     # cfg[-3] == 'M'
@@ -116,6 +116,5 @@ def add_extra_layers(in_channels=base[-1], cfg=extras, batch_norm=False):
         in_channels = v
     
     return layers
-
 
 

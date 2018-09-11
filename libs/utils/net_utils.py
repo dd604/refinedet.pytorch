@@ -79,37 +79,38 @@ class TCB(nn.Module):
         # conv + bn + relu
         self.conv1 = nn.Conv2d(lateral_channels, internal_channels,
                                kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm2d(internal_channels)
+        # self.bn1 = nn.BatchNorm2d(internal_channels)
         self.relu1 = nn.ReLU(inplace=True)
         
         # ((conv2 + bn2) element-wise add  (deconv + deconv_bn)) + relu
         # batch normalization before element-wise addition
         self.conv2 = nn.Conv2d(internal_channels, internal_channels,
                                kernel_size=3, padding=1)
-        self.bn2 = nn.BatchNorm2d(internal_channels)
+        # self.bn2 = nn.BatchNorm2d(internal_channels)
         self.deconv = nn.ConvTranspose2d(channles, internal_channels,
                                          kernel_size=3, stride=2,
                                          padding=1, output_padding=1)
-        self.deconv_bn = nn.BatchNorm2d(internal_channels)
+        # self.deconv_bn = nn.BatchNorm2d(internal_channels)
         self.relu2 = nn.ReLU(inplace=True)
         
         # conv + bn + relu
         self.conv3 = nn.Conv2d(internal_channels, internal_channels,
                                kernel_size=3, padding=1)
-        self.bn3 = nn.BatchNorm2d(internal_channels)
+        # self.bn3 = nn.BatchNorm2d(internal_channels)
         self.relu3 = nn.ReLU(inplace=True)
         
         # attribution
         self.out_channels = internal_channels
     
     def forward(self, lateral, x):
-        lateral_out = self.relu1(self.bn1(self.conv1(lateral)))
+        # no batchnorm
+        lateral_out = self.relu1(self.conv1(lateral))
         # element-wise addation
         out = self.relu2(
-            self.bn2(self.conv2(lateral_out)) +
-            self.deconv_bn(self.deconv(x))
+            self.conv2(lateral_out) +
+            self.deconv(x)
         )
         
-        out = self.relu3(self.bn3(self.conv3(out)))
+        out = self.relu3(self.conv3(out))
         
         return out
