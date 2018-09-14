@@ -34,17 +34,18 @@ class RefineDet(nn.Module):
         
         # detection layer and loss layers
         self.detect_layer = Detect(
-            self.num_classes, cfg['top_k'], cfg['pos_prior_threshold'],
-            cfg['detection_conf_threshold'], cfg['detection_nms'],
-            cfg['variance'], cfg['variance']
+            self.num_classes, cfg['variance'], cfg['variance'],
+            cfg['top_k'], cfg['pos_prior_threshold'],
+            cfg['detection_conf_threshold'], cfg['detection_nms']
         )
         self.arm_loss_layer = ARMLoss(cfg['gt_overlap_threshold'],
                                       cfg['neg_pos_ratio'],
                                       cfg['variance'])
         self.odm_loss_layer = ODMLoss(
-            self.num_classes, cfg['pos_prior_threshold'],
+            self.num_classes,
             cfg['gt_overlap_threshold'], cfg['neg_pos_ratio'],
-            cfg['variance'], cfg['variance']
+            cfg['variance'], cfg['variance'],
+            cfg['pos_prior_threshold']
         )
         self.bi_predictions = None
         self.multi_predictions = None
@@ -66,15 +67,15 @@ class RefineDet(nn.Module):
         self.pyramid_layer3 = TCB(self.layers_out_channels[2], self.internal_channels,
                              self.internal_channels)
         # pyramid_layer4 has a different constructure
-        self.top_in_channels = self.layers_out_channels[3]
+        self.top_in_channels = self.layers_out_channels[-1]
         top_layers = [nn.Conv2d(self.top_in_channels, self.internal_channels,
                                 kernel_size=3, padding=1),
-                      nn.BatchNorm2d(self.internal_channels),
+                      # nn.BatchNorm2d(self.internal_channels),
                       nn.ReLU(inplace=True)]
         # repeat twice
         top_layers += ([nn.Conv2d(self.internal_channels, self.internal_channels,
                                   kernel_size=3, padding=1),
-                        nn.BatchNorm2d(self.internal_channels),
+                        # nn.BatchNorm2d(self.internal_channels),
                         nn.ReLU(inplace=True)] * 2)
         self.pyramid_layer4 = nn.ModuleList(top_layers)
         
@@ -123,7 +124,7 @@ class RefineDet(nn.Module):
         pyramid_features = [p1, p2, p3, p4]
         # print([k.shape for k in pyramid_features])
         if x.is_cuda:
-            self.priors.cuda()
+            self.priors = self.priors.cuda()
         # heads
         bi_loc_pred, bi_conf_pred = self._forward_arm_head(forward_features)
         multi_loc_pred, multi_conf_pred = self._forward_odm_head(pyramid_features)
@@ -220,6 +221,7 @@ class RefineDet(nn.Module):
             conf_layers += [nn.Conv2d(self.internal_channels,
                                       self.cfg['mbox'][k] * num_classes,
                                       kernel_size=3, padding=1)]
-        self.multi_conf = nn.ModuleList(conf_layers)
+        
         self.multi_loc = nn.ModuleList(loc_layers)
+        self.multi_conf = nn.ModuleList(conf_layers)
         

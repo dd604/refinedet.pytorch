@@ -124,9 +124,12 @@ def train():
     # for k, v in params.items():
     #     print(k)
     #     print(v.shape)
-        
-    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
+    
+    optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()),
+                          lr=args.lr, momentum=args.momentum,
                           weight_decay=args.weight_decay)
+    # optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
+    #                       weight_decay=args.weight_decay)
     net.train()
     print('Training RefineDet on:', dataset.name)
     print('Using the specified args:')

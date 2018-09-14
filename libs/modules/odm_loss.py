@@ -11,15 +11,16 @@ class ODMLoss(nn.Module):
     """
     """
     
-    def __init__(self, num_classes, pos_prior_threshold, overlap_thresh,
-                 neg_pos_ratio, arm_variance, variance):
+    def __init__(self, num_classes, overlap_thresh,
+                 neg_pos_ratio, arm_variance, variance,
+                 pos_prior_threshold):
         super(ODMLoss, self).__init__()
         self.num_classes = num_classes
         self.overlap_thresh = overlap_thresh
-        self.pos_prior_threshold = pos_prior_threshold
-        self.negpos_ratio = neg_pos_ratio
-        self.variance = variance
+        self.neg_pos_ratio = neg_pos_ratio
         self.arm_variance = arm_variance
+        self.variance = variance
+        self.pos_prior_threshold = pos_prior_threshold
     
     def forward(self, bi_predictions, multi_predictions, priors, targets):
         """Multibox Loss
@@ -29,8 +30,8 @@ class ODMLoss(nn.Module):
         # arm_conf_data = functional.softmax(bi_prediction[1].data, -1)
         arm_score_data = functional.softmax(bi_predictions[1], -1).data
         # variable
-        odm_loc_data, odm_conf_data = multi_predictions[0], multi_predictions[1]
-        num = odm_loc_data.size(0)
+        odm_loc_pred, odm_conf_pred = multi_predictions[0], multi_predictions[1]
+        num = odm_loc_pred.size(0)
         num_priors = priors.size(0)
         
         # adjust priors
@@ -60,6 +61,7 @@ class ODMLoss(nn.Module):
             cur_positive_score = arm_score_data[idx, :, 1]
             reserve_flag = cur_positive_score > self.pos_prior_threshold
             index = torch.nonzero(reserve_flag)[:, 0]
+            # select priors
             used_priors = cur_priors[index]
             # print(used_priors.shape)
             # the type of used_conf_t is the same as lables.
@@ -85,13 +87,14 @@ class ODMLoss(nn.Module):
         # Localization Loss (Smooth L1)
         # Shape: [batch,num_priors,4]
         # use all gt priors for location loss.
-        pos_idx = pos.unsqueeze(pos.dim()).expand_as(odm_loc_data)
-        loc_pred = odm_loc_data[pos_idx].view(-1, 4)
-        loc_t = loc_t[pos_idx].view(-1, 4)
-        loss_l = functional.smooth_l1_loss(loc_pred, loc_t, size_average=False)
+        pos_idx = pos.unsqueeze(pos.dim()).expand_as(odm_loc_pred)
+        select_loc_pred = odm_loc_pred[pos_idx].view(-1, 4)
+        select_loc_t = loc_t[pos_idx].view(-1, 4)
+        loss_l = functional.smooth_l1_loss(select_loc_pred,
+                                           select_loc_t, size_average=False)
         
         # Compute max conf across batch for hard negative mining
-        batch_conf = odm_conf_data.view(-1, self.num_classes)
+        batch_conf = odm_conf_pred.view(-1, self.num_classes)
         # conf_t must be long integers with range [0, classes]
         ignore = (conf_t == -1)
         # print([ignore[i].long().sum() for i in xrange(num)])
@@ -114,19 +117,21 @@ class ODMLoss(nn.Module):
         _, loss_idx = loss_c.sort(1, descending=True)
         _, idx_rank = loss_idx.sort(1)
         num_pos = pos.long().sum(1, keepdim=True)
-        # num_neg = torch.clamp(self.negpos_ratio * num_pos, max=(pos.size(1) - num_pos))
-        num_neg = torch.clamp(self.negpos_ratio * num_pos, max=pos.size(1) - 1)
+        # num_neg = torch.clamp(self.neg_pos_ratio * num_pos, max=(pos.size(1) - num_pos))
+        num_neg = torch.clamp(self.neg_pos_ratio * num_pos, max=pos.size(1) - 1)
         neg = idx_rank < num_neg.expand_as(idx_rank)
         # print(num_pos)
         # print(num_neg)
         # Confidence Loss Including Positive and Negative Examples
-        pos_idx = pos.unsqueeze(2).expand_as(odm_conf_data)
-        neg_idx = neg.unsqueeze(2).expand_as(odm_conf_data)
-        conf_pred = odm_conf_data[(pos_idx + neg_idx).gt(0)].view(-1, self.num_classes)
+        pos_idx = pos.unsqueeze(2).expand_as(odm_conf_pred)
+        neg_idx = neg.unsqueeze(2).expand_as(odm_conf_pred)
+        select_conf_pred = odm_conf_pred[(pos_idx + neg_idx).gt(0)].view(
+            -1, self.num_classes)
         # 1 for positives
-        targets_weighted = conf_t[(pos + neg).gt(0)]
+        select_targets = conf_t[(pos + neg).gt(0)]
         # final classification loss
-        loss_c = functional.cross_entropy(conf_pred, targets_weighted, size_average=False)
+        loss_c = functional.cross_entropy(select_conf_pred, select_targets,
+                                          size_average=False)
         
         # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + alpha*Lloc(x,l,g)) / N
         

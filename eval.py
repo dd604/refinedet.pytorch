@@ -445,7 +445,7 @@ if __name__ == '__main__':
     net.eval()
     net = net.cuda()
     # load weights
-    weights_path = './weights/refinedet320_VOC_100000.pth'
+    weights_path = './weights/refinedet320_VOC_120000.pth'
     weights = torch.load(weights_path)
     net.load_state_dict(weights)
     

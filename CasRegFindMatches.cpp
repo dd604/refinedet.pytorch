@@ -9,10 +9,14 @@ void CasRegFindMatches(const vector<LabelBBox>& all_loc_preds,
   // all_match_overlaps->clear();
   // all_match_indices->clear();
   // Get parameters.
+  //all_match_indices第一层vector对应，map的int对应label，这里不区分类别，
+  // key为-1 数目是Batch * ([label=-1], Nprior)
+  //all_match_overlaps类似
   CHECK(multibox_loss_param.has_num_classes()) << "Must provide num_classes.";
   const int num_classes = multibox_loss_param.num_classes();
   CHECK_GE(num_classes, 1) << "num_classes should not be less than 1.";
   const bool share_location = multibox_loss_param.share_location();
+  // 共享位置，loc_classes = 1
   const int loc_classes = share_location ? 1 : num_classes;
   const MatchType match_type = multibox_loss_param.match_type();
   const float overlap_threshold = multibox_loss_param.overlap_threshold();
@@ -45,7 +49,7 @@ void CasRegFindMatches(const vector<LabelBBox>& all_loc_preds,
       const vector<NormalizedBBox>& arm_loc_preds = all_arm_loc_preds[i].find(label)->second;
       vector<NormalizedBBox> decode_prior_bboxes;
       bool clip_bbox = false;
-      // 解码得到arm预测的boxes
+      // 解码得到arm预测的boxes，decode_prior_bboxes
       DecodeBBoxes(prior_bboxes, prior_variances,
     		  code_type, encode_variance_in_target, clip_bbox,
 			  arm_loc_preds, &decode_prior_bboxes);
@@ -55,6 +59,7 @@ void CasRegFindMatches(const vector<LabelBBox>& all_loc_preds,
                 ignore_cross_boundary_bbox, &temp_match_indices,
                 &temp_match_overlaps);
       if (share_location) {
+      // map可以通过这种方式赋值，自动创建key = -1，这里只有一个key
         match_indices[label] = temp_match_indices;
         match_overlaps[label] = temp_match_overlaps;
       }

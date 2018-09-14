@@ -36,6 +36,9 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   // Find matches between source bboxes and ground truth bboxes.
   vector<map<int, vector<float> > > all_match_overlaps;
   if (bottom.size() >= 6) {
+    // 使用prior_bboxes对all_loc_preds进行解码，得到refine_bboxes，
+    // 使用refine_bboxes与gt_bboxes进行匹配
+    // 获取all_match_indices_
 	CasRegFindMatches(all_loc_preds, all_gt_bboxes, prior_bboxes, prior_variances,
 			    multibox_loss_param_, &all_match_overlaps, &all_match_indices_,
 			    all_arm_loc_preds);
@@ -48,11 +51,18 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   num_matches_ = 0;
   int num_negs = 0;
   // Sample hard negative (and positive) examples based on mining type.
+  // 这里用到EncodeLocPrediction？
+  // 这里用的odm的loc_preds，用的是普通的prior_bboxes对gt进行编码，
+  // 并没有用到arm的loc，只是用到了arm的conf，而是使用了refine得到的索引进行监督。
+  // 很是奇怪。
+  // 会修改all_match_indices_
   MineHardExamples(*bottom[1], all_loc_preds, all_gt_bboxes, prior_bboxes,
                    prior_variances, all_match_overlaps, multibox_loss_param_,
                    &num_matches_, &num_negs, &all_match_indices_,
                    &all_neg_indices_, arm_conf_data);
-
+  // 如果有匹配，再进行一次解码，不进行匹配了，使用上面的all_match_indices_
+  // 得到loc_pred_和loc_gt_，用来计算loss的对。
+  // 这里CasRegEncodeLocPrediction
   if (num_matches_ >= 1) {
     // Form data to pass on to loc_loss_layer_.
     vector<int> loc_shape(2);
@@ -62,20 +72,13 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     loc_gt_.Reshape(loc_shape);
     Dtype* loc_pred_data = loc_pred_.mutable_cpu_data();
     Dtype* loc_gt_data = loc_gt_.mutable_cpu_data();
-    if (bottom.size() >= 6) {
-	  CasRegEncodeLocPrediction(all_loc_preds, all_gt_bboxes, all_match_indices_,
-	  					prior_bboxes, prior_variances, multibox_loss_param_,
-	  					loc_pred_data, loc_gt_data, all_arm_loc_preds);
-    }
-    else {
-  	  EncodeLocPrediction(all_loc_preds, all_gt_bboxes, all_match_indices_,
-  	 					prior_bboxes, prior_variances, multibox_loss_param_,
-  	  					loc_pred_data, loc_gt_data);
-    }
+    // 不会修改all_match_indices_
+    CasRegEncodeLocPrediction(all_loc_preds, all_gt_bboxes,
+                    all_match_indices_,
+                    prior_bboxes, prior_variances, multibox_loss_param_,
+                    loc_pred_data, loc_gt_data, all_arm_loc_preds);
     loc_loss_layer_->Reshape(loc_bottom_vec_, loc_top_vec_);
     loc_loss_layer_->Forward(loc_bottom_vec_, loc_top_vec_);
-  } else {
-    loc_loss_.mutable_cpu_data()[0] = 0;
   }
 
   // Form data to pass on to conf_loss_layer_.

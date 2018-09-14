@@ -13,9 +13,8 @@ class Detect(nn.Module):
     based on conf scores and threshold to a top_k number of output predictions
     for both confidence score and locations.
     """
-    def __init__(self, num_classes, top_k, pos_prior_threshold,
-                 detect_conf_thresh, nms_thresh, arm_variance,
-                 odm_variance):
+    def __init__(self, num_classes, arm_variance, odm_variance,
+                 top_k, pos_prior_threshold, detect_conf_thresh, nms_thresh):
         """
         :param num_classes: number of classes.
         :param top_k: keep the top k of detection results.

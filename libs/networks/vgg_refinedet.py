@@ -22,6 +22,7 @@ class VGGRefineDet(_RefineDet):
     def _init_modules(self, model_path=None, pretrained=True):
         self.base = nn.ModuleList(make_vgg_layers())
         self.extra = nn.ModuleList(add_extra_layers())
+        pdb.set_trace()
         self.pretrained = pretrained
         self.model_path = model_path
         if self.pretrained == True and model_path is not None:
@@ -29,10 +30,11 @@ class VGGRefineDet(_RefineDet):
             state_dict = torch.load(self.model_path)
             self.base.load_state_dict({k: v for k, v in state_dict.items()
                                        if k in self.base.state_dict()})
+            
             # fix weights
             for param in self.base.parameters():
-                if not (param in state_dict.items()):
-                    continue
+                # if not (param in state_dict.items()):
+                #     continue
                 param.requires_grad = False
 
         self.layers_out_channels = layers_out_channels
