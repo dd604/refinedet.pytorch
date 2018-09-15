@@ -32,7 +32,7 @@ voc = {
     'pos_prior_threshold': 0.0001,
     'top_k': 200,
     'detection_nms': 0.45,
-    'detection_conf_threshold': 0.6,
+    'detection_conf_threshold': 0.5,
     'name': 'VOC',
 }
 

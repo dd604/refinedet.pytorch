@@ -36,9 +36,9 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   // Find matches between source bboxes and ground truth bboxes.
   vector<map<int, vector<float> > > all_match_overlaps;
   if (bottom.size() >= 6) {
-    // ä½¿ç”¨prior_bboxeså¯¹all_loc_predsè¿›è¡Œè§£ç ï¼Œå¾—åˆ°refine_bboxesï¼Œ
-    // ä½¿ç”¨refine_bboxesä¸gt_bboxesè¿›è¡ŒåŒ¹é…
-    // è·å–all_match_indices_
+    // Ê¹ÓÃprior_bboxes¶Ôall_loc_preds½øĞĞ½âÂë£¬µÃµ½refine_bboxes£¬
+    // Ê¹ÓÃrefine_bboxesÓëgt_bboxes½øĞĞÆ¥Åä
+    // »ñÈ¡all_match_indices_
 	CasRegFindMatches(all_loc_preds, all_gt_bboxes, prior_bboxes, prior_variances,
 			    multibox_loss_param_, &all_match_overlaps, &all_match_indices_,
 			    all_arm_loc_preds);
@@ -51,18 +51,18 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
   num_matches_ = 0;
   int num_negs = 0;
   // Sample hard negative (and positive) examples based on mining type.
-  // è¿™é‡Œç”¨åˆ°EncodeLocPredictionï¼Ÿ
-  // è¿™é‡Œç”¨çš„odmçš„loc_predsï¼Œç”¨çš„æ˜¯æ™®é€šçš„prior_bboxeså¯¹gtè¿›è¡Œç¼–ç ï¼Œ
-  // å¹¶æ²¡æœ‰ç”¨åˆ°armçš„locï¼Œåªæ˜¯ç”¨åˆ°äº†armçš„confï¼Œè€Œæ˜¯ä½¿ç”¨äº†refineå¾—åˆ°çš„ç´¢å¼•è¿›è¡Œç›‘ç£ã€‚
-  // å¾ˆæ˜¯å¥‡æ€ªã€‚
-  // ä¼šä¿®æ”¹all_match_indices_
+  // ÕâÀïÓÃµ½EncodeLocPrediction£¿
+  // ÕâÀïÓÃµÄodmµÄloc_preds£¬ÓÃµÄÊÇÆÕÍ¨µÄprior_bboxes¶Ôgt½øĞĞ±àÂë£¬
+  // ²¢Ã»ÓĞÓÃµ½armµÄloc£¬Ö»ÊÇÓÃµ½ÁËarmµÄconf£¬¶øÊÇÊ¹ÓÃÁËrefineµÃµ½µÄË÷Òı½øĞĞ¼à¶½¡£
+  // ºÜÊÇÆæ¹Ö¡£
+  // »áĞŞ¸Äall_match_indices_
   MineHardExamples(*bottom[1], all_loc_preds, all_gt_bboxes, prior_bboxes,
                    prior_variances, all_match_overlaps, multibox_loss_param_,
                    &num_matches_, &num_negs, &all_match_indices_,
                    &all_neg_indices_, arm_conf_data);
-  // å¦‚æœæœ‰åŒ¹é…ï¼Œå†è¿›è¡Œä¸€æ¬¡è§£ç ï¼Œä¸è¿›è¡ŒåŒ¹é…äº†ï¼Œä½¿ç”¨ä¸Šé¢çš„all_match_indices_
-  // å¾—åˆ°loc_pred_å’Œloc_gt_ï¼Œç”¨æ¥è®¡ç®—lossçš„å¯¹ã€‚
-  // è¿™é‡ŒCasRegEncodeLocPrediction
+  // Èç¹ûÓĞÆ¥Åä£¬ÔÙ½øĞĞÒ»´Î½âÂë£¬²»½øĞĞÆ¥ÅäÁË£¬Ê¹ÓÃÉÏÃæµÄall_match_indices_
+  // µÃµ½loc_pred_ºÍloc_gt_£¬ÓÃÀ´¼ÆËãlossµÄ¶Ô¡£
+  // ÕâÀïCasRegEncodeLocPrediction
   if (num_matches_ >= 1) {
     // Form data to pass on to loc_loss_layer_.
     vector<int> loc_shape(2);
@@ -72,7 +72,7 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
     loc_gt_.Reshape(loc_shape);
     Dtype* loc_pred_data = loc_pred_.mutable_cpu_data();
     Dtype* loc_gt_data = loc_gt_.mutable_cpu_data();
-    // ä¸ä¼šä¿®æ”¹all_match_indices_
+    // ²»»áĞŞ¸Äall_match_indices_
     CasRegEncodeLocPrediction(all_loc_preds, all_gt_bboxes,
                     all_match_indices_,
                     prior_bboxes, prior_variances, multibox_loss_param_,
@@ -110,6 +110,7 @@ void MultiBoxLossLayer<Dtype>::Forward_cpu(const vector<Blob<Dtype>*>& bottom,
       CHECK_EQ(conf_pred_.count(), bottom[1]->count());
       conf_pred_.ShareData(*(bottom[1]));
     }
+    // ³éÈ¡ÁËÕı¸ºÑù±¾ÊıÁ¿Ö®ºó£¬ÕâÀïÊÇ³éÈ¡µÄÓĞĞ§µÄ²¿·Ö£¬½øĞĞconfµÄ±àÂë
     Dtype* conf_pred_data = conf_pred_.mutable_cpu_data();
     Dtype* conf_gt_data = conf_gt_.mutable_cpu_data();
     caffe_set(conf_gt_.count(), Dtype(background_label_id_), conf_gt_data);

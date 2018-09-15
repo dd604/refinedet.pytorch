@@ -130,7 +130,6 @@ class RefineDet(nn.Module):
         multi_loc_pred, multi_conf_pred = self._forward_odm_head(pyramid_features)
         self.bi_predictions = (bi_loc_pred, bi_conf_pred)
         self.multi_predictions = (multi_loc_pred, multi_conf_pred)
-        
         if self.training == False:
             return self.detect_layer(self.bi_predictions, self.multi_predictions,
                                self.priors.data)

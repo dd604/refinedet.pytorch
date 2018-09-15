@@ -5,6 +5,8 @@ from torch.autograd import Variable
 import torch.nn.functional as functional
 from libs.utils.box_utils import match, log_sum_exp
 
+import pdb
+
 class ARMLoss(nn.Module):
     """
     """
@@ -27,7 +29,6 @@ class ARMLoss(nn.Module):
             targets (tensor): Ground truth boxes and labels for a batch,
                 shape: [batch_size,num_objs,5] (last idx is the label).
         """
-        # pdb.set_trace()
         loc_pred, conf_pred = predictions
         num = loc_pred.size(0)
         num_priors = priors.size(0)
@@ -38,13 +39,12 @@ class ARMLoss(nn.Module):
         if loc_pred.is_cuda:
             loc_t = loc_t.cuda()
             conf_t = conf_t.cuda()
-            # cuda_device = loc_pred.get_device()
-            # loc_t = loc_t.cuda(device=cuda_device)
-            # conf_t = conf_t.cuda(device=cuda_device)
         
         #     pdb.set_trace()
         for idx in range(num):
+            pdb.set_trace()
             truths = targets[idx][:, :-1].data
+            # binary classes
             labels = torch.zeros_like(targets[idx][:, -1].data)
             # pdb.set_trace()
             # encode results are stored in loc_t and conf_t
@@ -66,6 +66,7 @@ class ARMLoss(nn.Module):
         
         # Compute max conf across batch for hard negative mining
         batch_conf = conf_pred.view(-1, self.num_classes)
+        # all wrong loss
         loss_c = log_sum_exp(batch_conf) - \
                  batch_conf.gather(1, conf_t.view(-1, 1))
         
@@ -75,7 +76,6 @@ class ARMLoss(nn.Module):
         loss_c[pos] = 0  # filter out pos boxes for now
         
         _, loss_idx = loss_c.sort(1, descending=True)
-        # pdb.set_trace()
         _, idx_rank = loss_idx.sort(1)
         num_pos = pos.long().sum(1, keepdim=True)
         num_neg = torch.clamp(self.neg_pos_ratio * num_pos, max=pos.size(1) - 1)
@@ -96,5 +96,6 @@ class ARMLoss(nn.Module):
         total_num = num_pos.data.sum()
         loss_l /= total_num
         loss_c /= total_num
+        # loss_c /= (self.neg_pos_ratio * total_num)
         
         return loss_l, loss_c

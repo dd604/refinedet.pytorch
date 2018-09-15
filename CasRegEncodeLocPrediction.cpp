@@ -7,15 +7,17 @@ void CasRegEncodeLocPrediction(const vector<LabelBBox>& all_loc_preds,
       const MultiBoxLossParameter& multibox_loss_param,
       Dtype* loc_pred_data, Dtype* loc_gt_data,
 	  const vector<LabelBBox>& all_arm_loc_preds) {
-	  // è¿›è¡Œencodeï¼Œç»“æœä¿å­˜åœ¨Dtype* loc_pred_data, Dtype* loc_gt_data,ä¸­
-  // å›¾ç‰‡æ•°ç›®
+  // ½øĞĞencode£¬½á¹û±£´æÔÚDtype* loc_pred_data, Dtype* loc_gt_data,ÖĞ
+  // Í¼Æ¬ÊıÄ¿
+  // Ê¹ÓÃrefined priors¶Ôgt½øĞĞ±àÂë£¬Ö»±àÂë²¢ĞŞ¸ÄindicesÖ¸¶¨µÄ£¬Ò²¾ÍÊÇÆ¥ÅäµÄ¡£
   int num = all_loc_preds.size();
   // CHECK_EQ(num, all_match_indices.size());
   // Get parameters.
   const CodeType code_type = multibox_loss_param.code_type();
   const bool encode_variance_in_target =
       multibox_loss_param.encode_variance_in_target();
-  // æ˜¯å¦ä¼šç”¨åˆ°åœ¨ä¸­é—´çš„åˆ¤æ–­
+  // ÊÇ·ñ»áÓÃµ½ÔÚÖĞ¼äµÄÅĞ¶Ï£¬²é¿´ÁË²»ĞèÒª
+  // use_prior_for_matchingÎªtrue
   const bool bp_inside = multibox_loss_param.bp_inside();
   const bool use_prior_for_matching =
       multibox_loss_param.use_prior_for_matching();
@@ -23,11 +25,11 @@ void CasRegEncodeLocPrediction(const vector<LabelBBox>& all_loc_preds,
   for (int i = 0; i < num; ++i) {
     //apply arm_loc_preds to prior_box
     // decode arm_loc_preds by prior_box
-    // iå›¾ï¼Œå½“å‰å›¾armé¢„æµ‹
+    // iÍ¼£¬µ±Ç°Í¼armÔ¤²â
     const vector<NormalizedBBox>& arm_loc_preds =
         all_arm_loc_preds[i].find(-1)->second;
-    // å­˜æ”¾è§£ç ç»“æœï¼Œåˆè§£ä¸€æ¬¡ç ï¼Ÿå¾—åˆ°çš„æ˜¯refine priorsï¼Œ
-    // å’Œå‰é¢å¯»æ‰¾matchæ˜¯ä¸€æ ·çš„æ–¹å¼ã€‚ä¸è¿‡è¿™æ¬¡ä¸ç”¨é‡æ–°æœç´¢äº†ï¼Œå·²ç»æœ‰matchçš„ç´¢å¼•äº†ã€‚
+    // ´æ·Å½âÂë½á¹û£¬ÓÖ½âÒ»´ÎÂë£¿µÃµ½µÄÊÇrefine priors£¬
+    // ºÍÇ°ÃæÑ°ÕÒmatchÊÇÒ»ÑùµÄ·½Ê½¡£²»¹ıÕâ´Î²»ÓÃÖØĞÂËÑË÷ÁË£¬ÒÑ¾­ÓĞmatchµÄË÷ÒıÁË¡£
     // all_match_indices
     vector<NormalizedBBox> decode_prior_bboxes;
     bool clip_bbox = false;
@@ -35,18 +37,18 @@ void CasRegEncodeLocPrediction(const vector<LabelBBox>& all_loc_preds,
     		code_type, encode_variance_in_target, clip_bbox,
 			arm_loc_preds, &decode_prior_bboxes);
     // indices guide matching between all_loc_preds and gt.
-    // åœ¨å‰é¢find matchåŸºç¡€ä¸Šè¿›ä¸€æ­¥è¿›è¡ŒåŒ¹é…armåŒ¹é…çš„refine boxï¼Œå¯¹åº”çš„è¿›è¡Œencodeã€‚
-    // å½“å‰å›¾armçš„åŒ¹é…ç´¢å¼•ã€‚
+    // ÔÚÇ°Ãæfind match»ù´¡ÉÏ½øÒ»²½½øĞĞÆ¥ÅäarmÆ¥ÅäµÄrefine box£¬¶ÔÓ¦µÄ½øĞĞencode¡£
+    // µ±Ç°Í¼armµÄÆ¥ÅäË÷Òı¡£
     for (map<int, vector<int> >::const_iterator
          it = all_match_indices[i].begin();
          it != all_match_indices[i].end(); ++it) {
-      // å½“å‰ç±»åˆ«class
+      // ÕâÀïÖ»ÓĞÒ»¸ökey£¬label=-1
       const int label = it->first;
       const vector<int>& match_index = it->second;
-      // ä¸€å®šè¦èƒ½ä¿è¯å­˜åœ¨
+      // Ò»¶¨ÒªÄÜ±£Ö¤´æÔÚ
       CHECK(all_loc_preds[i].find(label) != all_loc_preds[i].end());
-      // æ‰¾åˆ°åŒ¹é…çš„é¢„æµ‹ï¼Œè¿™é‡Œæ˜¯è¦æ‹·è´è¿™ä¸ªå€¼æ”¾åˆ°å¦å¤–çš„loc_pred_dataé‡Œé¢ã€‚
-      // ä¸»è¦åªæ˜¯æŠ½å–ä½œç”¨ã€‚
+      // ÕÒµ½Æ¥ÅäµÄÔ¤²â£¬ÕâÀïÊÇÒª¿½±´Õâ¸öÖµ·Åµ½ÁíÍâµÄloc_pred_dataÀïÃæ¡£
+      // Ö÷ÒªÖ»ÊÇ³éÈ¡×÷ÓÃ¡£
       const vector<NormalizedBBox>& loc_pred =
           all_loc_preds[i].find(label)->second;
       for (int j = 0; j < match_index.size(); ++j) {
@@ -60,18 +62,41 @@ void CasRegEncodeLocPrediction(const vector<LabelBBox>& all_loc_preds,
         const NormalizedBBox& gt_bbox = all_gt_bboxes.find(i)->second[gt_idx];
         NormalizedBBox gt_encode;
         CHECK_LT(j, decode_prior_bboxes.size());
-        // æ‰¾åˆ°å¯¹åº”çš„gtï¼Œç”¨å¯¹åº”çš„refineè¿‡çš„priorå¯¹gtè¿›è¡Œç¼–ç ï¼Œå¾—åˆ°loc_gt_data
+        // ÕÒµ½¶ÔÓ¦µÄgt£¬ÓÃ¶ÔÓ¦µÄrefine¹ıµÄprior¶Ôgt½øĞĞ±àÂë£¬µÃµ½loc_gt_data
         EncodeBBox(decode_prior_bboxes[j], prior_variances[j], code_type,
                    encode_variance_in_target, gt_bbox, &gt_encode);
-        // ä¿å­˜gtè¿›è¡Œç¼–ç çš„ç»“æœ
+        // ±£´ægt½øĞĞ±àÂëµÄ½á¹û
         loc_gt_data[count * 4] = gt_encode.xmin();
         loc_gt_data[count * 4 + 1] = gt_encode.ymin();
         loc_gt_data[count * 4 + 2] = gt_encode.xmax();
         loc_gt_data[count * 4 + 3] = gt_encode.ymax();
         // Store location prediction.
-        CHECK_LT(j, loc_pred.size());
-        // æŠ½å–ç›¸åº”çš„é¢„æµ‹ç»“æœï¼Œåé¢ä¸ç¼–ç äºŒè€…è®¡ç®—loss
-        {
+				CHECK_LT(j, loc_pred.size());
+				//Ä¬ÈÏÊÇ²»¿¼ÂÇbp_insideµÄ£¬²»¿¼ÂÇ³¬³ö±ß½çµÄ´°¿Ú¡£
+				if (bp_inside) {
+					NormalizedBBox match_bbox = decode_prior_bboxes[j];
+					if (!use_prior_for_matching) {
+						const bool clip_bbox = false;
+						DecodeBBox(decode_prior_bboxes[j], prior_variances[j], code_type,
+											 encode_variance_in_target, clip_bbox, loc_pred[j],
+											 &match_bbox);
+					}
+					// When a dimension of match_bbox is outside of image region, use
+					// gt_encode to simulate zero gradient.
+					loc_pred_data[count * 4] =
+							(match_bbox.xmin() < 0 || match_bbox.xmin() > 1) ?
+							gt_encode.xmin() : loc_pred[j].xmin();
+					loc_pred_data[count * 4 + 1] =
+							(match_bbox.ymin() < 0 || match_bbox.ymin() > 1) ?
+							gt_encode.ymin() : loc_pred[j].ymin();
+					loc_pred_data[count * 4 + 2] =
+							(match_bbox.xmax() < 0 || match_bbox.xmax() > 1) ?
+							gt_encode.xmax() : loc_pred[j].xmax();
+					loc_pred_data[count * 4 + 3] =
+							(match_bbox.ymax() < 0 || match_bbox.ymax() > 1) ?
+							gt_encode.ymax() : loc_pred[j].ymax();
+				} else {
+					// ³éÈ¡ÏàÓ¦µÄÔ¤²â½á¹û£¬ºóÃæÓë±àÂë¶şÕß¼ÆËãloss
           loc_pred_data[count * 4] = loc_pred[j].xmin();
           loc_pred_data[count * 4 + 1] = loc_pred[j].ymin();
           loc_pred_data[count * 4 + 2] = loc_pred[j].xmax();

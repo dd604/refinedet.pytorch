@@ -22,7 +22,7 @@ class VGGRefineDet(_RefineDet):
     def _init_modules(self, model_path=None, pretrained=True):
         self.base = nn.ModuleList(make_vgg_layers())
         self.extra = nn.ModuleList(add_extra_layers())
-        pdb.set_trace()
+        # pdb.set_trace()
         self.pretrained = pretrained
         self.model_path = model_path
         if self.pretrained == True and model_path is not None:

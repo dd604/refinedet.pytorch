@@ -9,14 +9,14 @@ void CasRegFindMatches(const vector<LabelBBox>& all_loc_preds,
   // all_match_overlaps->clear();
   // all_match_indices->clear();
   // Get parameters.
-  //all_match_indicesç¬¬ä¸€å±‚vectorå¯¹åº”ï¼Œmapçš„intå¯¹åº”labelï¼Œè¿™é‡Œä¸åŒºåˆ†ç±»åˆ«ï¼Œ
-  // keyä¸º-1 æ•°ç›®æ˜¯Batch * ([label=-1], Nprior)
-  //all_match_overlapsç±»ä¼¼
+  //all_match_indicesµÚÒ»²ãvector¶ÔÓ¦£¬mapµÄint¶ÔÓ¦label£¬ÕâÀï²»Çø·ÖÀà±ğ£¬
+  // keyÎª-1 ÊıÄ¿ÊÇBatch * ([label=-1], Nprior)
+  //all_match_overlapsÀàËÆ
   CHECK(multibox_loss_param.has_num_classes()) << "Must provide num_classes.";
   const int num_classes = multibox_loss_param.num_classes();
   CHECK_GE(num_classes, 1) << "num_classes should not be less than 1.";
   const bool share_location = multibox_loss_param.share_location();
-  // å…±äº«ä½ç½®ï¼Œloc_classes = 1
+  // ¹²ÏíÎ»ÖÃ£¬loc_classes = 1
   const int loc_classes = share_location ? 1 : num_classes;
   const MatchType match_type = multibox_loss_param.match_type();
   const float overlap_threshold = multibox_loss_param.overlap_threshold();
@@ -35,8 +35,8 @@ void CasRegFindMatches(const vector<LabelBBox>& all_loc_preds,
     map<int, vector<float> > match_overlaps;
 
     // Find match between predictions and ground truth.
-    // findç”¨åœ¨mapä¸­
-    // å½“å‰å›¾ç‰‡çš„gt
+    // findÓÃÔÚmapÖĞ
+    // µ±Ç°Í¼Æ¬µÄgt
     const vector<NormalizedBBox>& gt_bboxes = all_gt_bboxes.find(i)->second;
     {
       // Use prior bboxes to match against all ground truth.
@@ -45,21 +45,21 @@ void CasRegFindMatches(const vector<LabelBBox>& all_loc_preds,
       const int label = -1;
 
       //apply arm_loc_preds to prior_box
-      // æœ€åä¸€ä¸ªlabelå­˜æ”¾çš„æ˜¯æ‰€æœ‰çš„ç»“æœ
+      // ×îºóÒ»¸ölabel´æ·ÅµÄÊÇËùÓĞµÄ½á¹û
       const vector<NormalizedBBox>& arm_loc_preds = all_arm_loc_preds[i].find(label)->second;
       vector<NormalizedBBox> decode_prior_bboxes;
       bool clip_bbox = false;
-      // è§£ç å¾—åˆ°armé¢„æµ‹çš„boxesï¼Œdecode_prior_bboxes
+      // ½âÂëµÃµ½armÔ¤²âµÄboxes£¬decode_prior_bboxes
       DecodeBBoxes(prior_bboxes, prior_variances,
     		  code_type, encode_variance_in_target, clip_bbox,
 			  arm_loc_preds, &decode_prior_bboxes);
-      // ä½¿ç”¨é¢„æµ‹ç»“æœå’Œgtè¿›è¡ŒåŒ¹é…ï¼Ÿæˆ‘å°±æ˜¯è¿™ä¹ˆåšçš„å•Šã€‚
-      // å¾—åˆ°åŒ¹é…ç´¢å¼•ã€‚åŒ¹é…çš„refined priorï¼Œå¯¹gtè¿›è¡Œç¼–ç ã€‚
+      // Ê¹ÓÃÔ¤²â½á¹ûºÍgt½øĞĞÆ¥Åä£¿ÎÒ¾ÍÊÇÕâÃ´×öµÄ°¡¡£
+      // µÃµ½Æ¥ÅäË÷Òı¡£Æ¥ÅäµÄrefined prior£¬¶Ôgt½øĞĞ±àÂë¡£
       MatchBBox(gt_bboxes, decode_prior_bboxes, label, match_type, overlap_threshold,
                 ignore_cross_boundary_bbox, &temp_match_indices,
                 &temp_match_overlaps);
       if (share_location) {
-      // mapå¯ä»¥é€šè¿‡è¿™ç§æ–¹å¼èµ‹å€¼ï¼Œè‡ªåŠ¨åˆ›å»ºkey = -1ï¼Œè¿™é‡Œåªæœ‰ä¸€ä¸ªkey
+      // map¿ÉÒÔÍ¨¹ıÕâÖÖ·½Ê½¸³Öµ£¬×Ô¶¯´´½¨key = -1£¬ÕâÀïÖ»ÓĞÒ»¸ökey
         match_indices[label] = temp_match_indices;
         match_overlaps[label] = temp_match_overlaps;
       }

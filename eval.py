@@ -23,6 +23,7 @@ import argparse
 import numpy as np
 import pickle
 import cv2
+import pdb
 
 if sys.version_info[0] == 2:
     import xml.etree.cElementTree as ET
@@ -75,9 +76,10 @@ imgsetpath = os.path.join(args.voc_root, 'VOC2007', 'ImageSets',
 YEAR = '2007'
 devkit_path = args.voc_root + 'VOC' + YEAR
 dataset_mean = (104, 117, 123)
-set_type = 'test'
-
-
+# set_type = 'test'
+# set_type = 'mini_test'
+set_type = 'mini_train'
+# set_type = 'val'
 class Timer(object):
     """A simple timer."""
     def __init__(self):
@@ -257,6 +259,7 @@ cachedir: Directory for caching the annotations
 # assumes imagesetfile is a text file with each line an image name
 # cachedir caches the annotations in a pickle file
 # first load gt
+    pdb.set_trace()
     if not os.path.isdir(cachedir):
         os.mkdir(cachedir)
     cachefile = os.path.join(cachedir, 'annots.pkl')
@@ -387,7 +390,7 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
     # timers
     _t = {'im_detect': Timer(), 'misc': Timer()}
     # output_dir = get_output_dir('ssd300_120000', set_type)
-    output_dir = get_output_dir('refinedet320_120000', set_type)
+    output_dir = get_output_dir('refinedet320_96000', set_type)
     det_file = os.path.join(output_dir, 'detections.pkl')
 
     for i in range(num_images):
@@ -445,7 +448,7 @@ if __name__ == '__main__':
     net.eval()
     net = net.cuda()
     # load weights
-    weights_path = './weights/refinedet320_VOC_120000.pth'
+    weights_path = './weights/refinedet320_VOC_96000.pth'
     weights = torch.load(weights_path)
     net.load_state_dict(weights)
     
