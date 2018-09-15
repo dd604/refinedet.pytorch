@@ -77,8 +77,8 @@ YEAR = '2007'
 devkit_path = args.voc_root + 'VOC' + YEAR
 dataset_mean = (104, 117, 123)
 # set_type = 'test'
-# set_type = 'mini_test'
-set_type = 'mini_train'
+set_type = 'mini_test'
+# set_type = 'mini_train'
 # set_type = 'val'
 class Timer(object):
     """A simple timer."""
@@ -259,7 +259,7 @@ cachedir: Directory for caching the annotations
 # assumes imagesetfile is a text file with each line an image name
 # cachedir caches the annotations in a pickle file
 # first load gt
-    pdb.set_trace()
+#     pdb.set_trace()
     if not os.path.isdir(cachedir):
         os.mkdir(cachedir)
     cachefile = os.path.join(cachedir, 'annots.pkl')
@@ -267,7 +267,8 @@ cachedir: Directory for caching the annotations
     with open(imagesetfile, 'r') as f:
         lines = f.readlines()
     imagenames = [x.strip() for x in lines]
-    if not os.path.isfile(cachefile):
+    # if not os.path.isfile(cachefile):
+    if True:
         # load annots
         recs = {}
         for i, imagename in enumerate(imagenames):
@@ -390,7 +391,7 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
     # timers
     _t = {'im_detect': Timer(), 'misc': Timer()}
     # output_dir = get_output_dir('ssd300_120000', set_type)
-    output_dir = get_output_dir('refinedet320_96000', set_type)
+    output_dir = get_output_dir('refinedet320_116000', set_type)
     det_file = os.path.join(output_dir, 'detections.pkl')
 
     for i in range(num_images):

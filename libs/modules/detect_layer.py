@@ -36,7 +36,7 @@ class Detect(nn.Module):
         self.variance = odm_variance
         # self.softmax = functional.softmax
 
-    def forward(self, bi_predictions,multi_predictions, prior_data):
+    def forward(self, bi_predictions, multi_predictions, prior_data):
         """
         :param bi_predictions:
             0).arm_loc_data: (tensor) location predictions from loc layers of ARM
@@ -53,9 +53,9 @@ class Detect(nn.Module):
         """
         # batch size
         arm_loc_data, arm_conf_data = (bi_predictions[0].data,
-                                     bi_predictions[1].data)
+                                       bi_predictions[1].data)
         loc_data, conf_data = (multi_predictions[0].data,
-                                           multi_predictions[1].data)
+                               multi_predictions[1].data)
         # change confidence value to score by softmax.
         
         arm_score_data = functional.softmax(
@@ -79,24 +79,27 @@ class Detect(nn.Module):
             index = torch.nonzero(flag)[:, 0]
             # decoded boxes
             cur_refined_priors = refined_priors[i]
-            all_boxes = decode(odm_loc_data[i], cur_refined_priors,
+            all_boxes = decode(loc_data[i], cur_refined_priors,
                                self.variance)
-            odm_boxes = all_boxes[index]
+            # odm_boxes = all_boxes[index]
+            box_flag = flag.unsqueeze(flag.dim()).expand_as(all_boxes)
+            conf_flag = flag.unsqueeze(flag.dim()).expand_as(score_data[i])
+            select_boxes = all_boxes[box_flag].view(-1, 4)
             # odm_boxes = decode(odm_loc_data[i][index, :],
             #                    cur_refined_priors[index], self.variance)
-            cur_odm_score = odm_score_data[i][index].clone().\
-              transpose(1, 0)
+            select_score = score_data[i][conf_flag].view(
+                -1, self.num_classes).transpose(1, 0)
             
             # pdb.set_trace()
             for cl in range(1, self.num_classes):
-                c_mask = cur_odm_score[cl].gt(self.detect_conf_thresh)
+                c_mask = select_score[cl].gt(self.detect_conf_thresh)
                 # pdb.set_trace()
                 # print(type(c_mask))
-                scores = cur_odm_score[cl][c_mask]
+                scores = select_score[cl][c_mask]
                 if scores.dim() == 0:
                     continue
-                l_mask = c_mask.unsqueeze(1).expand_as(odm_boxes)
-                boxes = odm_boxes[l_mask].view(-1, 4)
+                l_mask = c_mask.unsqueeze(1).expand_as(select_boxes)
+                boxes = select_boxes[l_mask].view(-1, 4)
                 # idx of highest scoring and non-overlapping boxes per class
                 ids, count = nms(boxes, scores, self.nms_thresh, self.top_k)
                 output[i, cl, :count] = \
@@ -104,9 +107,10 @@ class Detect(nn.Module):
                                boxes[ids[:count]]), 1)
         # sort across each batch, which is different from the paper.
         # But since fill_ function is used, this is useless.
-        flt = output.contiguous().view(num, -1, 5)
-        _, idx = flt[:, :, 0].sort(1, descending=True)
-        _, rank = idx.sort(1)
-        flt[(rank < self.top_k).unsqueeze(-1).expand_as(flt)].fill_(0)
+        # flt = output.contiguous().view(num, -1, 5)
+        # _, idx = flt[:, :, 0].sort(1, descending=True)
+        # _, rank = idx.sort(1)
+        # flt[(rank > self.top_k).unsqueeze(-1).expand_as(flt)].fill_(0)
+        # flt[(rank > self.top_k).unsqueeze(-1).expand_as(flt)] = 0
         
         return output
