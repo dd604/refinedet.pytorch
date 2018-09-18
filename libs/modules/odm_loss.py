@@ -35,7 +35,8 @@ class ODMLoss(nn.Module):
         """
         arm_loc_data = bi_predictions[0].data
         # softmax
-        arm_score_data = functional.softmax(bi_predictions[1], -1).data
+        arm_score = functional.softmax(bi_predictions[1], -1).detach()
+        # arm_score_data = functional.softmax(bi_predictions[1], -1).data
         # variable
         loc_pred, conf_pred = multi_predictions[0], multi_predictions[1]
         num = loc_pred.size(0)
@@ -52,8 +53,7 @@ class ODMLoss(nn.Module):
         if arm_loc_data.is_cuda:
             loc_t = loc_t.cuda()
             conf_t = conf_t.cuda()
-        
-        # pdb.set_trace()
+            
         for idx in range(num):
             truths = targets[idx][:, :-1].data
             labels = targets[idx][:, -1].data
@@ -92,10 +92,11 @@ class ODMLoss(nn.Module):
         loss_c[pos] = 0
         # filter out ignore boxes
         # negative priors, ignore easy negative
-        pdb.set_trace()
-        select_neg_flag = (conf_t.data <= 0) & \
-                          (arm_score_data[:, :, 1] > self.pos_prior_threshold)
-        loss_c[select_neg_flag.lt(1)] = 0
+        ignore_neg_flag = (conf_t <= 0) & \
+                          (arm_score[:, :, 1] < self.pos_prior_threshold)
+        # select_neg_flag = (conf_t.data <= 0) & \
+        #                   (arm_score_data[:, :, 1] > self.pos_prior_threshold)
+        loss_c[ignore_neg_flag] = 0
         # values in loss_c are bigger than 0.
         _, loss_idx = loss_c.sort(1, descending=True)
         _, idx_rank = loss_idx.sort(1)

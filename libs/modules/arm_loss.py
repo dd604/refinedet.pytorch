@@ -42,11 +42,9 @@ class ARMLoss(nn.Module):
         
         #     pdb.set_trace()
         for idx in range(num):
-            pdb.set_trace()
             truths = targets[idx][:, :-1].data
             # binary classes
             labels = torch.zeros_like(targets[idx][:, -1].data)
-            # pdb.set_trace()
             # encode results are stored in loc_t and conf_t
             match(self.overlap_thresh, truths, priors.data, self.variance,
                   labels, loc_t, conf_t, idx)

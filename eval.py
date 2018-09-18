@@ -76,8 +76,8 @@ imgsetpath = os.path.join(args.voc_root, 'VOC2007', 'ImageSets',
 YEAR = '2007'
 devkit_path = args.voc_root + 'VOC' + YEAR
 dataset_mean = (104, 117, 123)
-# set_type = 'test'
-set_type = 'mini_test'
+set_type = 'test'
+# set_type = 'mini_test'
 # set_type = 'mini_train'
 # set_type = 'val'
 class Timer(object):
@@ -449,7 +449,7 @@ if __name__ == '__main__':
     net.eval()
     net = net.cuda()
     # load weights
-    weights_path = './weights/refinedet320_VOC_96000.pth'
+    weights_path = './weights/refinedet320_VOC_74000.pth'
     weights = torch.load(weights_path)
     net.load_state_dict(weights)
     
