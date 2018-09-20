@@ -11,7 +11,9 @@ weights/
 .DS_Store
 # dev stuff
 *.ipynb
-
+libs_modify_relu/
+eval/
+doc/
 # pycharm
 .idea/
 # pylint

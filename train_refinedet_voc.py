@@ -106,7 +106,8 @@ def train():
     vgg_refinedet = VGGRefineDet(cfg['num_classes'], cfg)
 
     vgg_refinedet.create_architecture(
-        os.path.join(args.save_folder, args.basenet), pretrained=True)
+        os.path.join(args.save_folder, args.basenet), pretrained=True,
+        fine_tuning=True)
     net = vgg_refinedet
     if args.cuda:
         # refinedet = refinedet.cuda(device_ids)
@@ -124,12 +125,11 @@ def train():
     # for k, v in params.items():
     #     print(k)
     #     print(v.shape)
-    
-    optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()),
-                          lr=args.lr, momentum=args.momentum,
-                          weight_decay=args.weight_decay)
-    # optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
+    # optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()),
+    #                       lr=args.lr, momentum=args.momentum,
     #                       weight_decay=args.weight_decay)
+    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
+                          weight_decay=args.weight_decay)
     net.train()
     print('Training RefineDet on:', dataset.name)
     print('Using the specified args:')

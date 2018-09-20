@@ -67,13 +67,13 @@ class VGGRefineDet(_RefineDet):
         # c1
         for k in xrange(len(self.layer1)):
             x = self.layer1[k](x)
-        x = self.L2Norm_conv4_3(x)
-        forward_features.append(x)
+        feature = self.L2Norm_conv4_3(x)
+        forward_features.append(feature)
         # c2
         for k in xrange(len(self.layer2)):
             x = self.layer2[k](x)
-        x = self.L2Norm_conv5_3(x)
-        forward_features.append(x)
+        feature = self.L2Norm_conv5_3(x)
+        forward_features.append(feature)
         # c3
         for k in xrange(len(self.layer3)):
             x = self.layer3[k](x)
