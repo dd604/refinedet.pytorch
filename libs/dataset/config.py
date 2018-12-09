@@ -22,6 +22,9 @@ voc = {
     'max_sizes': [],
     'aspect_ratios': [[2], [2], [2], [2]],
     'mbox': [3, 3, 3, 3],  # number of boxes per feature map location
+    #'aspect_ratios': [[2, 3], [2,3], [2,3], [2,3]],
+    #'mbox': [5, 5, 5, 5],  # number of boxes per feature map location
+    #'mbox': [4, 4, 4, 4],  # number of boxes per feature map location
     'variance': [0.1, 0.2],
     'clip': False,
     # 'clip': True,
@@ -30,7 +33,7 @@ voc = {
     'neg_pos_ratio': 3,
     # prior with positive probility less than this will be ignored
     'use_batch_norm': False,
-    'pos_prior_threshold': 0.0001,
+    'pos_prior_threshold': 0.01,
     'top_k': 400,
     'detection_nms': 0.45,
     'detection_conf_threshold': 0.01,

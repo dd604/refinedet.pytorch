@@ -94,9 +94,9 @@ def train():
             parser.error('Must specify dataset if specifying dataset_root')
         cfg = voc
         dataset = VOCDetection(root=args.dataset_root,
-                               image_sets=[('2007', 'trainval')],
-                               # image_sets=[('2007', 'trainval'),
-                               #             ('2012', 'trainval')],
+                               # image_sets=[('2007', 'trainval')],
+                               image_sets=[('2007', 'trainval'),
+                                           ('2012', 'trainval')],
                                transform=SSDAugmentation(cfg['min_dim'],
                                                          MEANS))
 

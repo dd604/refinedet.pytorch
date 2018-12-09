@@ -50,7 +50,7 @@ class RefineDet(nn.Module):
         self.bi_predictions = None
         self.multi_predictions = None
 
-    def _init_modules(self, model_path=None, pretrained=True):
+    def _init_modules(self, model_path=None, pretrained=True, fine_tuning=True):
         """
         One should rewrite this function and call _init_part_modules()
         """
@@ -97,8 +97,9 @@ class RefineDet(nn.Module):
         self.multi_loc.apply(weights_init)
         self.multi_conf.apply(weights_init)
         
-    def create_architecture(self, model_path=None, pretrained=True):
-        self._init_modules(model_path, pretrained)
+    def create_architecture(self, model_path=None, pretrained=True,
+                            fine_tuning=True):
+        self._init_modules(model_path, pretrained, fine_tuning)
         self._init_weights()
     
     def forward(self, x, targets=None):

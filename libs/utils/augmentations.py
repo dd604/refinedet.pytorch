@@ -1,4 +1,10 @@
 # encoding: utf-8
+"""
+This is used to augment training images for SSD.
+This file is obtained frome
+'https://github.com/amdegroot/ssd.pytorch/blob/master/utils/augmentations.py'
+
+"""
 import torch
 from torchvision import transforms
 import cv2
@@ -224,8 +230,10 @@ class RandomSampleCrop(object):
             # using entire original input image
             None,
             # sample a patch s.t. MIN jaccard w/ obj in .1,.3,.4,.7,.9
+            # add (0.5, None),
             (0.1, None),
             (0.3, None),
+            (0.5, None),
             (0.7, None),
             (0.9, None),
             # randomly sample a patch
@@ -267,7 +275,7 @@ class RandomSampleCrop(object):
                 overlap = jaccard_numpy(boxes, rect)
 
                 # is min and max overlap constraint satisfied? if not try again
-                if overlap.min() < min_iou or max_iou < overlap.max():
+                if overlap.min() < min_iou and max_iou < overlap.max():
                     continue
 
                 # cut the crop from the image

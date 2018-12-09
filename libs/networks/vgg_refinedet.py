@@ -19,12 +19,15 @@ class VGGRefineDet(_RefineDet):
         # _RefineDet.__init__(self, num_classes, cfg)
         
     
-    def _init_modules(self, model_path=None, pretrained=True):
+    def _init_modules(self, model_path=None, pretrained=True,
+            fine_tuning=True):
+        
         self.base = nn.ModuleList(make_vgg_layers())
         self.extra = nn.ModuleList(add_extra_layers())
         # pdb.set_trace()
         self.pretrained = pretrained
         self.model_path = model_path
+        # self.fine_tuning = self.fine_tuning
         if self.pretrained == True and model_path is not None:
             print("Loading pretrained weights from %s" % (self.model_path))
             state_dict = torch.load(self.model_path)
@@ -32,10 +35,9 @@ class VGGRefineDet(_RefineDet):
                                        if k in self.base.state_dict()})
             
             # fix weights
-            for param in self.base.parameters():
-                # if not (param in state_dict.items()):
-                #     continue
-                param.requires_grad = False
+            if not fine_tuning:
+                for param in self.base.parameters():
+                    param.requires_grad = False
 
         self.layers_out_channels = layers_out_channels
     
