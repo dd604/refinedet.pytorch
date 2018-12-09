@@ -35,9 +35,9 @@ class VGGRefineDet(_RefineDet):
                                        if k in self.base.state_dict()})
             
             # fix weights
-            if not fine_tuning:
-                for param in self.base.parameters():
-                    param.requires_grad = False
+            # if not fine_tuning:
+            #     for param in self.base.parameters():
+            #         param.requires_grad = False
 
         self.layers_out_channels = layers_out_channels
     

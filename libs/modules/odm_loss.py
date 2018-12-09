@@ -4,7 +4,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as functional
 from libs.utils.box_utils import log_sum_exp, match, \
-    match_and_encode, refine_priors
+    refine_priors
 
 import pdb
 
