@@ -23,11 +23,11 @@ class ARMLoss(nn.Module):
         Args:
             predictions (tuple): A tuple containing loc preds, conf preds,
             and priors boxes from SSD net.
-                conf shape: torch.size(batch_size,num_priors,num_classes)
-                loc shape: torch.size(batch_size,num_priors,4)
+                conf shape: torch.size(batch_size, num_priors, 2)
+                loc shape: torch.size(batch_size, num_priors, 4)
                 priors shape: torch.size(num_priors,4)
-            priors (tensor): Priors
-            targets (tensor): Ground truth boxes and labels for a batch,
+            priors: Priors
+            targets: Ground truth boxes and labels for a batch,
                 shape: [batch_size,num_objs,5] (last idx is the label).
         """
         loc_pred, conf_pred = predictions
@@ -40,11 +40,11 @@ class ARMLoss(nn.Module):
         if loc_pred.is_cuda:
             loc_t = loc_t.cuda()
             conf_t = conf_t.cuda()
-    
+            
         #     pdb.set_trace()
-        for idx in range(num):
+        for idx in xrange(num):
             truths = targets[idx][:, :-1].data
-            # binary classes
+            # Binary classes
             labels = torch.zeros_like(targets[idx][:, -1].data)
             # encode results are stored in loc_t and conf_t
             match(self.overlap_thresh, truths, priors.data, self.variance,
@@ -57,47 +57,46 @@ class ARMLoss(nn.Module):
         pos = conf_t > 0
         # pdb.set_trace()
         # Localization Loss (Smooth L1)
-        # Shape: [batch,num_priors,4]
+        # Shape: [batch, num_priors, 4]
         pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_pred).detach()
-        # Select used preds.
+        # Select postives to compute bounding box loss.
         loc_p = loc_pred[pos_idx].view(-1, 4)
         loc_t = loc_t[pos_idx].view(-1, 4)
         loss_l = functional.smooth_l1_loss(loc_p, loc_t, size_average=False)
-    
-        # Compute max conf across batch for hard negative mining
+        # Mimic MAX_NEGATIVE of caffe-ssd
+        # Compute max conf across a batch for selecting negatives with large
+        # error confidence.
         batch_conf = conf_pred.view(-1, self.num_classes)
-        # all wrong loss
-        loss_c = log_sum_exp(batch_conf) - \
-                 batch_conf.gather(1, conf_t.view(-1, 1))
-    
-        # change view
-        loss_c = loss_c.view(num, -1)
-        # Hard Negative Mining
-        loss_c[pos] = 0  # filter out pos boxes for now
-    
-        _, loss_idx = loss_c.sort(1, descending=True)
+        # Sum up losses of all wrong classes.
+        # This loss is only used to select max negatives.
+        loss_conf_proxy = log_sum_exp(batch_conf) - batch_conf.gather(
+            1, conf_t.view(-1, 1))
+        loss_conf_proxy = loss_conf_proxy.view(num, -1)
+        # Exclude positives
+        loss_conf_proxy[pos] = 0
+        # Sort and select max negatives
+        # Values in loss_c are not less than 0.
+        _, loss_idx = loss_conf_proxy.sort(1, descending=True)
         _, idx_rank = loss_idx.sort(1)
         num_pos = pos.long().sum(1, keepdim=True)
         num_neg = torch.clamp(self.neg_pos_ratio * num_pos, max=pos.size(1) - 1)
-        # Detach
-        neg = (idx_rank < num_neg.expand_as(idx_rank))
-        # Confidence Loss Including Positive and Negative Examples
-        neg_idx = neg.unsqueeze(2).expand_as(conf_pred)
+        neg = idx_rank < num_neg.expand_as(idx_rank)
+        # Total confidence loss includes positives and negatives.
         pos_idx = pos.unsqueeze(2).expand_as(conf_pred)
-        # gt(0) ?
-        select_conf_pred_flag = (pos_idx + neg_idx).gt(0).detach()
-        select_conf_pred = conf_pred[select_conf_pred_flag].view(
+        neg_idx = neg.unsqueeze(2).expand_as(conf_pred)
+        # Use detach() to block backpropagation of idx
+        select_conf_pred_idx = (pos_idx + neg_idx).gt(0).detach()
+        select_conf_pred = conf_pred[select_conf_pred_idx].view(
             -1, self.num_classes)
-        select_target_flag = (pos + neg).gt(0).detach()
-        select_target = conf_t[select_target_flag]
+        select_target_idx = (pos + neg).gt(0).detach()
+        select_target = conf_t[select_target_idx]
+        # Final classification loss
         loss_c = functional.cross_entropy(select_conf_pred, select_target,
                                           size_average=False)
-    
-        # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + ��Lloc(x,l,g)) / N
+        # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + alpha*Lloc(x,l,g)) / N
         # only positives ?
         total_num = num_pos.data.sum()
         loss_l /= total_num
         loss_c /= total_num
-        # loss_c /= (self.neg_pos_ratio * total_num)
     
         return loss_l, loss_c

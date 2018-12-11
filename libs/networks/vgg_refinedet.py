@@ -16,9 +16,7 @@ class VGGRefineDet(_RefineDet):
     """
     def __init__(self, num_classes, cfg):
         super(VGGRefineDet, self).__init__(num_classes, cfg)
-        # _RefineDet.__init__(self, num_classes, cfg)
         
-    
     def _init_modules(self, model_path=None, pretrained=True,
             fine_tuning=True):
         
@@ -33,11 +31,10 @@ class VGGRefineDet(_RefineDet):
             state_dict = torch.load(self.model_path)
             self.base.load_state_dict({k: v for k, v in state_dict.items()
                                        if k in self.base.state_dict()})
-            
             # fix weights
-            # if not fine_tuning:
-            #     for param in self.base.parameters():
-            #         param.requires_grad = False
+            if not fine_tuning:
+                for param in self.base.parameters():
+                    param.requires_grad = False
 
         self.layers_out_channels = layers_out_channels
     

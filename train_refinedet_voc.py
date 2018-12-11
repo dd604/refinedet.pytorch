@@ -15,7 +15,7 @@ from libs.dataset import *
 
 import pdb
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
 
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
@@ -99,9 +99,7 @@ def train():
                                            ('2012', 'trainval')],
                                transform=SSDAugmentation(cfg['min_dim'],
                                                          MEANS))
-
-    # train
-    # positive > this
+        
     # pdb.set_trace()
     vgg_refinedet = VGGRefineDet(cfg['num_classes'], cfg)
 

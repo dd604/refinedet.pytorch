@@ -47,8 +47,8 @@ class RefineDet(nn.Module):
             cfg['variance'], cfg['variance'],
             cfg['pos_prior_threshold']
         )
-        self.bi_predictions = None
-        self.multi_predictions = None
+        self.arm_predictions = None
+        self.odm_predictions = None
 
     def _init_modules(self, model_path=None, pretrained=True, fine_tuning=True):
         """
@@ -66,17 +66,21 @@ class RefineDet(nn.Module):
                              self.internal_channels)
         self.pyramid_layer3 = TCB(self.layers_out_channels[2], self.internal_channels,
                              self.internal_channels)
-        # pyramid_layer4 has a different constructure
-        self.top_in_channels = self.layers_out_channels[-1]
+        # The pyramid_layer4 has a different constructure
+        self.top_in_channels = self.layers_out_channels[3]
         top_layers = [nn.Conv2d(self.top_in_channels, self.internal_channels,
                                 kernel_size=3, padding=1),
                       # nn.BatchNorm2d(self.internal_channels),
                       nn.ReLU(inplace=True)]
         # repeat twice
-        top_layers += ([nn.Conv2d(self.internal_channels, self.internal_channels,
+        top_layers += [nn.Conv2d(self.internal_channels, self.internal_channels,
                                   kernel_size=3, padding=1),
-                        # nn.BatchNorm2d(self.internal_channels),
-                        nn.ReLU(inplace=True)] * 2)
+                       # nn.BatchNorm2d(self.internal_channels),
+                       nn.ReLU(inplace=True),
+                       nn.Conv2d(self.internal_channels, self.internal_channels,
+                                  kernel_size=3, padding=1),
+                       # nn.BatchNorm2d(self.internal_channels),
+                       nn.ReLU(inplace=True)]
         self.pyramid_layer4 = nn.ModuleList(top_layers)
         
         # arm and odm
@@ -92,10 +96,10 @@ class RefineDet(nn.Module):
         self.pyramid_layer3.apply(weights_init)
         self.pyramid_layer4.apply(weights_init)
     
-        self.bi_loc.apply(weights_init)
-        self.bi_conf.apply(weights_init)
-        self.multi_loc.apply(weights_init)
-        self.multi_conf.apply(weights_init)
+        self.arm_loc.apply(weights_init)
+        self.arm_conf.apply(weights_init)
+        self.odm_loc.apply(weights_init)
+        self.odm_conf.apply(weights_init)
         
     def create_architecture(self, model_path=None, pretrained=True,
                             fine_tuning=True):
@@ -111,11 +115,9 @@ class RefineDet(nn.Module):
         # forward features
         forward_features = self._get_forward_features(x)
         # print([k.shape for k in forward_features])
-        (c1, c2, c3, c4) = (forward_features[0], forward_features[1], \
-            forward_features[2], forward_features[3])
+        (c1, c2, c3, c4) = forward_features
         # pyramid features
-        # p4 = self.pyramid_layer4(c4)
-        # do not overwrite c4
+        # Do not overwrite c4
         p4 = self.pyramid_layer4[0](c4)
         for k in xrange(1, len(self.pyramid_layer4)):
             p4 = self.pyramid_layer4[k](p4)
@@ -127,25 +129,24 @@ class RefineDet(nn.Module):
         if x.is_cuda:
             self.priors = self.priors.cuda()
         # heads
-        bi_loc_pred, bi_conf_pred = self._forward_arm_head(forward_features)
-        multi_loc_pred, multi_conf_pred = self._forward_odm_head(pyramid_features)
-        self.bi_predictions = (bi_loc_pred, bi_conf_pred)
-        self.multi_predictions = (multi_loc_pred, multi_conf_pred)
-        if self.training == False:
-            return self.detect_layer(self.bi_predictions, self.multi_predictions,
+        arm_loc_pred, arm_conf_pred = self._forward_arm_head(forward_features)
+        odm_loc_pred, odm_conf_pred = self._forward_odm_head(pyramid_features)
+        self.arm_predictions = (arm_loc_pred, arm_conf_pred)
+        self.odm_predictions = (odm_loc_pred, odm_conf_pred)
+        if not self.training:
+            return self.detect_layer(self.arm_predictions, self.odm_predictions,
                                self.priors.data)
         elif targets is not None:
             return self.calculate_loss(targets)
+        
     
     def calculate_loss(self, targets):
-        bi_loss_loc, bi_loss_conf = self.arm_loss_layer.forward(
-            self.bi_predictions, self.priors, targets
-        )
-        multi_loss_loc, multi_loss_conf = self.odm_loss_layer.forward(
-            self.bi_predictions, self.multi_predictions, self.priors, targets
-        )
+        arm_loss_loc, arm_loss_conf = self.arm_loss_layer(
+            self.arm_predictions, self.priors, targets)
+        odm_loss_loc, odm_loss_conf = self.odm_loss_layer(
+            self.arm_predictions, self.odm_predictions, self.priors, targets)
         
-        return bi_loss_loc, bi_loss_conf, multi_loss_loc, multi_loss_conf
+        return arm_loss_loc, arm_loss_conf, odm_loss_loc, odm_loss_conf
     
     def _get_forward_features(self, x):
         """
@@ -153,52 +154,64 @@ class RefineDet(nn.Module):
         """
         raise NotImplementedError('You should rewrite the "calculate_forward_features" function')
     
-    # arm
-    def _forward_arm_head(self, forward_features):
-        # arm, anchor refinement moduel
-        bi_loc_pred = list()
-        bi_conf_pred = list()
-        
-        # apply binary class head to source layers
-        num_classes = 2
-        for (x, l, c) in zip(forward_features, self.bi_loc, self.bi_conf):
-            bi_loc_pred.append(l(x).permute(0, 2, 3, 1).contiguous())
-            bi_conf_pred.append(c(x).permute(0, 2, 3, 1).contiguous())
-        # (batch, N*pred)
-        bi_loc_pred = torch.cat([o.view(o.size(0), -1)
-                                 for o in bi_loc_pred], 1)
-        bi_conf_pred = torch.cat([o.view(o.size(0), -1)
-                                  for o in bi_conf_pred], 1)
-        bi_loc_pred = bi_loc_pred.view(bi_loc_pred.size(0), -1, 4)
-        bi_conf_pred = bi_conf_pred.view(bi_conf_pred.size(0), -1, num_classes)
-        
-        return bi_loc_pred, bi_conf_pred
 
-    # odm
-    def _forward_odm_head(self, pyramid_features):
-        # odm, object detection model
-        multi_loc_pred = list()
-        multi_conf_pred = list()
-        # pdb.set_trace()
-        for (x, l, c) in zip(pyramid_features, self.multi_loc, self.multi_conf):
-            multi_loc_pred.append(l(x).permute(0, 2, 3, 1).contiguous())
-            multi_conf_pred.append(c(x).permute(0, 2, 3, 1).contiguous())
+    def _forward_arm_head(self, forward_features):
+        """
+        Apply arm_head to forward_features.
+        :param forward_features:
+        :return:
+        arm_loc_pred
+        """
+        # arm, anchor refinement moduel
+        arm_loc_pred = []
+        arm_conf_pred = []
+        num_classes = 2
+        # Apply arm_head to forward_features and concatenate results into
+        # a tensor of shape (batch, num_priors*4 or num_priors*num_classes)
+        for (x, l, c) in zip(forward_features, self.arm_loc, self.arm_conf):
+            arm_loc_pred.append(l(x).permute(0, 2, 3, 1).contiguous())
+            arm_conf_pred.append(c(x).permute(0, 2, 3, 1).contiguous())
         # (batch, N*pred)
-        multi_loc_pred = torch.cat([o.view(o.size(0), -1)
-                                    for o in multi_loc_pred], 1)
-        multi_conf_pred = torch.cat([o.view(o.size(0), -1)
-                                     for o in multi_conf_pred], 1)
-        multi_loc_pred = multi_loc_pred.view(multi_loc_pred.size(0), -1, 4)
-        multi_conf_pred = multi_conf_pred.view(multi_conf_pred.size(0), -1,
+        arm_loc_pred = torch.cat([o.view(o.size(0), -1)
+                                 for o in arm_loc_pred], 1)
+        arm_conf_pred = torch.cat([o.view(o.size(0), -1)
+                                  for o in arm_conf_pred], 1)
+        arm_loc_pred = arm_loc_pred.view(arm_loc_pred.size(0), -1, 4)
+        arm_conf_pred = arm_conf_pred.view(arm_conf_pred.size(0), -1, num_classes)
+        
+        return arm_loc_pred, arm_conf_pred
+
+    def _forward_odm_head(self, pyramid_features):
+
+        odm_loc_pred = []
+        odm_conf_pred = []
+        # pdb.set_trace()
+        # Apply odm_head to pyramid_features and concatenate results into
+        # a tensor of shape (batch, num_priors*4 or num_priors*num_classes)
+        for (x, l, c) in zip(pyramid_features, self.odm_loc, self.odm_conf):
+            odm_loc_pred.append(l(x).permute(0, 2, 3, 1).contiguous())
+            odm_conf_pred.append(c(x).permute(0, 2, 3, 1).contiguous())
+        odm_loc_pred = torch.cat([o.view(o.size(0), -1)
+                                    for o in odm_loc_pred], 1)
+        odm_conf_pred = torch.cat([o.view(o.size(0), -1)
+                                     for o in odm_conf_pred], 1)
+        # Shape of loc_pred (batch, num_priors, 4)
+        odm_loc_pred = odm_loc_pred.view(odm_loc_pred.size(0), -1, 4)
+        # Shape of conf_pred (batch, num_priors, num_classes)
+        odm_conf_pred = odm_conf_pred.view(odm_conf_pred.size(0), -1,
                                                self.num_classes)
         
-        return multi_loc_pred, multi_conf_pred
+        return odm_loc_pred, odm_conf_pred
     
     def _build_arm_head(self):
+        """
+        ARM(Object Detection Module)
+        """
         loc_layers = []
         conf_layers = []
         num_classes = 2
-        # relu has no 'out_channels' attribution.
+        # Relu module in self.layer# does not have 'out_channels' attribution,
+        # so we must supply layers_out_channles as inputs for 'Conv2d'
         assert (len(self.layers_out_channels) == len(self.cfg['mbox']),
                 'Length of layers_out_channels must match length of cfg["mbox"]')
         for k, v in enumerate(self.layers_out_channels):
@@ -206,14 +219,18 @@ class RefineDet(nn.Module):
                                      kernel_size=3, padding=1)]
             conf_layers += [nn.Conv2d(v, self.cfg['mbox'][k] * num_classes,
                                       kernel_size=3, padding=1)]
-        self.bi_conf = nn.ModuleList(conf_layers)
-        self.bi_loc = nn.ModuleList(loc_layers)
-    
+        
+        self.arm_loc = nn.ModuleList(loc_layers)
+        self.arm_conf = nn.ModuleList(conf_layers)
+        
     def _build_odm_head(self):
+        """
+        ODM(Object Detection Module)
+        """
         loc_layers = []
         conf_layers = []
         num_classes = self.num_classes
-        # relu has no 'out_channels' attribution.
+        # internal_channels
         for k in xrange(len(self.layers_out_channels)):
             loc_layers += [nn.Conv2d(self.internal_channels,
                                      self.cfg['mbox'][k] * 4,
@@ -222,6 +239,6 @@ class RefineDet(nn.Module):
                                       self.cfg['mbox'][k] * num_classes,
                                       kernel_size=3, padding=1)]
         
-        self.multi_loc = nn.ModuleList(loc_layers)
-        self.multi_conf = nn.ModuleList(conf_layers)
+        self.odm_loc = nn.ModuleList(loc_layers)
+        self.odm_conf = nn.ModuleList(conf_layers)
         

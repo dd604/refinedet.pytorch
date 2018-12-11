@@ -38,7 +38,8 @@ def str2bool(v):
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Evaluation')
 parser.add_argument('--trained_model',
-                    default='weights/refinedet320_VOC_120000.pth', type=str,
+                    default='weights/refinedet320_VOC_60000.pth', type=str,
+                    ########default='weights/refinedet320_VOC_120000.pth', type=str,
                     # default='weights/ssd300_mAP_77.43_v2.pth', type=str,
                     help='Trained state_dict file path to open')
 parser.add_argument('--save_folder', default='eval/', type=str,
@@ -448,11 +449,12 @@ if __name__ == '__main__':
     net.create_architecture()
     net.eval()
     net = net.cuda()
+    
     # load weights
     weights_path = './weights/refinedet320_VOC_120000.pth'
     weights = torch.load(weights_path)
     net.load_state_dict(weights)
-    
+     
     print('Finished loading model!')
     # load data
     dataset = VOCDetection(args.voc_root, [('2007', set_type)],
