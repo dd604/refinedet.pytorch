@@ -27,7 +27,9 @@ class Detect(nn.Module):
         """
         super(Detect, self).__init__()
         self.num_classes = num_classes
-        self.top_k = top_k
+        self.top_k_per_class = 400
+        self.keep_top_k = 200
+
         self.pos_prior_threshold = pos_prior_threshold
         # Parameters used in nms.
         self.detect_conf_thresh = detect_conf_thresh
@@ -36,14 +38,14 @@ class Detect(nn.Module):
         self.variance = odm_variance
         # self.softmax = functional.softmax
 
-    def forward(self, bi_predictions, multi_predictions, prior_data):
+    def forward(self, arm_predictions, odm_predictions, prior_data):
         """
-        :param bi_predictions:
+        :param arm_predictions:
             0).arm_loc_data: (tensor) location predictions from loc layers of ARM
             Shape: (batch_size, num_priors, 4)
             1).arm_conf_data: (tensor) confidence predictions from conf layers of ARM
             Shape: (batch_size, num_priors, 2)
-        :param multi_predictions:
+        :param odm_predictions:
             0).odm_loc_data: (tensor) location predictions from loc layers of ODM
             Shape: (batch_size, num_priors, 4)
             1).odm_conf_data: (tensor) confidence predictions from conf layers of ODM
@@ -51,66 +53,62 @@ class Detect(nn.Module):
         :param prior_data: (tensor) Prior boxes and from priorbox layers
             Shape: (num_priors, 4)
         """
-        # batch size
-        arm_loc_data, arm_conf_data = (bi_predictions[0].data,
-                                       bi_predictions[1].data)
-        loc_data, conf_data = (multi_predictions[0].data,
-                               multi_predictions[1].data)
-        # change confidence value to score by softmax.
-        
-        arm_score_data = functional.softmax(
-            Variable(arm_conf_data.clone(), requires_grad=False), dim=-1
-        ).data
-        
-        score_data = functional.softmax(
-            Variable(conf_data.clone(), requires_grad=False), dim=-1
-        ).data
-        # batch size
+        # Compute prediction scores using softmax for tow modules.
+        arm_loc_data = arm_predictions[0].data
+        arm_score_data = functional.softmax(arm_predictions[1].detach(),
+                                            dim=-1).data
+        loc_data = odm_predictions[0].data
+        score_data = functional.softmax(odm_predictions[1].detach(),
+                                        dim=-1).data
+        # Output
         num = arm_loc_data.size(0)
-        output = torch.zeros(num, self.num_classes, self.top_k, 5).type_as(
-            loc_data)
-        
+        output = torch.zeros(num, self.num_classes, self.top_k_per_class,
+                             5).type_as(loc_data)
+        # Predict ROIs of ARM.
         refined_priors = refine_priors(arm_loc_data, prior_data, self.arm_variance)
         # select
-        for i in range(num):
-            cur_arm_score = arm_score_data[i]
-            # ignore priors whose positive score is small
-            flag = cur_arm_score[:, 1] > self.pos_prior_threshold
-            index = torch.nonzero(flag)[:, 0]
-            # decoded boxes
-            cur_refined_priors = refined_priors[i]
-            all_boxes = decode(loc_data[i], cur_refined_priors,
+        # For each image, keep keep_top_k,
+        # retain top_k per class for nms.
+        for idx in range(num):
+            # Decoded odm bbox prediction to get boxes
+            all_boxes = decode(loc_data[idx], refined_priors[idx],
                                self.variance)
-            # odm_boxes = all_boxes[index]
+            cur_arm_score = arm_score_data[idx]
+            # Ignore predictions whose positive scores are small.
+            flag = cur_arm_score[:, 1] > self.pos_prior_threshold
             box_flag = flag.unsqueeze(flag.dim()).expand_as(all_boxes)
-            conf_flag = flag.unsqueeze(flag.dim()).expand_as(score_data[i])
+            conf_flag = flag.unsqueeze(flag.dim()).expand_as(score_data[idx])
             select_boxes = all_boxes[box_flag].view(-1, 4)
-            # odm_boxes = decode(odm_loc_data[i][index, :],
-            #                    cur_refined_priors[index], self.variance)
-            select_score = score_data[i][conf_flag].view(
+            # ?
+            select_scores = score_data[idx][conf_flag].view(
                 -1, self.num_classes).transpose(1, 0)
-            
-            # pdb.set_trace()
-            for cl in range(1, self.num_classes):
-                c_mask = select_score[cl].gt(self.detect_conf_thresh)
+            # NMS per class
+            for icl in range(1, self.num_classes):
+                c_mask = select_scores[icl].gt(self.detect_conf_thresh)
                 # pdb.set_trace()
                 # print(type(c_mask))
-                scores = select_score[cl][c_mask]
+                scores = select_scores[icl][c_mask]
                 if scores.dim() == 0:
                     continue
                 l_mask = c_mask.unsqueeze(1).expand_as(select_boxes)
                 boxes = select_boxes[l_mask].view(-1, 4)
                 # idx of highest scoring and non-overlapping boxes per class
-                ids, count = nms(boxes, scores, self.nms_thresh, self.top_k)
-                output[i, cl, :count] = \
+                ids, count = nms(boxes, scores, self.nms_thresh,
+                                 self.top_k_per_class)
+                output[idx, icl, :count] = \
                     torch.cat((scores[ids[:count]].unsqueeze(1),
                                boxes[ids[:count]]), 1)
-        # sort across each batch, which is different from the paper.
+        # Sort each image,
         # But since fill_ function is used, this is useless.
-        # flt = output.contiguous().view(num, -1, 5)
-        # _, idx = flt[:, :, 0].sort(1, descending=True)
-        # _, rank = idx.sort(1)
-        # flt[(rank > self.top_k).unsqueeze(-1).expand_as(flt)].fill_(0)
-        # flt[(rank > self.top_k).unsqueeze(-1).expand_as(flt)] = 0
+        # pdb.set_trace()
+        flt = output.contiguous().view(num, -1, 5)
+        _, idx = flt[:, :, 0].sort(1, descending=True)
+        _, rank = idx.sort(1)
+        # flt_copy = flt.clone()
+        # flt[(rank > self.keep_top_k).unsqueeze(-1).expand_as(flt)].fill_(0)
+        # print(torch.sum(flt_copy != flt))
+        flt[(rank > self.keep_top_k).unsqueeze(-1).expand_as(flt)] = 0
+        # print(torch.sum(flt_copy != flt))
+        # flt.view(num, self.num_classes, self.top_k_per_class, 5)
         
-        return output
+        return flt.view(num, self.num_classes, self.top_k_per_class, 5)

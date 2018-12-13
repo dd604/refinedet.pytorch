@@ -15,10 +15,11 @@ from libs.dataset import *
 
 import pdb
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1,2"
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+
 
 def str2bool(v):
-    return v.lower() in ("yes", "true", "t", "1")
+    return v.lower() in ('yes', 'true', 't', '1')
 
 
 parser = argparse.ArgumentParser(
@@ -62,8 +63,8 @@ if torch.cuda.is_available():
     if args.cuda:
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
     if not args.cuda:
-        print("WARNING: It looks like you have a CUDA device, but aren't " +
-              "using CUDA.\nRun with --cuda for optimal training speed.")
+        print('WARNING: It looks like you have a CUDA device, but are not' +
+              'using CUDA.\nRun with --cuda for optimal training speed.')
         torch.set_default_tensor_type('torch.FloatTensor')
 else:
     torch.set_default_tensor_type('torch.FloatTensor')
@@ -82,8 +83,8 @@ def train():
         if args.dataset_root == VOC_ROOT:
             if not os.path.exists(COCO_ROOT):
                 parser.error('Must specify dataset_root if specifying dataset')
-            print("WARNING: Using default COCO dataset_root because " +
-                  "--dataset_root was not specified.")
+            print('WARNING: Using default COCO dataset_root because ' +
+                  '--dataset_root was not specified.')
             args.dataset_root = COCO_ROOT
         cfg = coco
         dataset = COCODetection(root=args.dataset_root,

@@ -34,7 +34,8 @@ voc = {
     # prior with positive probility less than this will be ignored
     'use_batch_norm': False,
     'pos_prior_threshold': 0.01,
-    'top_k': 400,
+    'top_k_pre_nms': 400,
+    'top_k': 200,
     'detection_nms': 0.45,
     'detection_conf_threshold': 0.01,
     'name': 'VOC',
@@ -68,19 +69,3 @@ coco = {
 }
 
 
-TRAIN_CFG = {
-    # 'hard_neg_mining': True,
-    'neg_pos_ratio': 3,
-    'variance': [0.1, 0.2],
-    'aspect_ratios': [[2], [2], [2], [2]],
-    # number of boxes per feature map location
-    'mbox': [3, 3, 3, 3],
-    'gt_overlap_threshold': 0.5,
-    # prior with positive probility less than this will be ignored
-    'prior_prob_threshold': 0.01
-}
-
-TEST_CFG = {
-    'top_k': 200,
-    'nms_thresh': 0.45
-}

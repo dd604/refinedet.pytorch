@@ -128,14 +128,12 @@ class RefineDet(nn.Module):
         # print([k.shape for k in pyramid_features])
         if x.is_cuda:
             self.priors = self.priors.cuda()
-        # heads
-        arm_loc_pred, arm_conf_pred = self._forward_arm_head(forward_features)
-        odm_loc_pred, odm_conf_pred = self._forward_odm_head(pyramid_features)
-        self.arm_predictions = (arm_loc_pred, arm_conf_pred)
-        self.odm_predictions = (odm_loc_pred, odm_conf_pred)
+        # Predictions of two heads
+        self.arm_predictions = tuple(self._forward_arm_head(forward_features))
+        self.odm_predictions = tuple(self._forward_odm_head(pyramid_features))
         if not self.training:
             return self.detect_layer(self.arm_predictions, self.odm_predictions,
-                               self.priors.data)
+                                     self.priors.data)
         elif targets is not None:
             return self.calculate_loss(targets)
         

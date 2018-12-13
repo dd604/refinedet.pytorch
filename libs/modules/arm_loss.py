@@ -78,8 +78,11 @@ class ARMLoss(nn.Module):
         # Values in loss_c are not less than 0.
         _, loss_idx = loss_conf_proxy.sort(1, descending=True)
         _, idx_rank = loss_idx.sort(1)
+        # pdb.set_trace()
         num_pos = pos.long().sum(1, keepdim=True)
-        num_neg = torch.clamp(self.neg_pos_ratio * num_pos, max=pos.size(1) - 1)
+        # num_neg = torch.clamp(self.neg_pos_ratio * num_pos,
+        #                       max=pos.size(1) - num_pos)
+        num_neg = torch.min(self.neg_pos_ratio * num_pos, pos.size(1) - num_pos)
         neg = idx_rank < num_neg.expand_as(idx_rank)
         # Total confidence loss includes positives and negatives.
         pos_idx = pos.unsqueeze(2).expand_as(conf_pred)
@@ -94,7 +97,7 @@ class ARMLoss(nn.Module):
         loss_c = functional.cross_entropy(select_conf_pred, select_target,
                                           size_average=False)
         # Sum of losses: L(x,c,l,g) = (Lconf(x, c) + alpha*Lloc(x,l,g)) / N
-        # only positives ?
+        # only number of positives
         total_num = num_pos.data.sum()
         loss_l /= total_num
         loss_c /= total_num

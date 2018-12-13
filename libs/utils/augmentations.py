@@ -1,7 +1,7 @@
 # encoding: utf-8
 """
 This is used to augment training images for SSD.
-This file is obtained frome
+This file is obtained from
 'https://github.com/amdegroot/ssd.pytorch/blob/master/utils/augmentations.py'
 
 """
@@ -113,8 +113,7 @@ class Resize(object):
         self.size = size
 
     def __call__(self, image, boxes=None, labels=None):
-        image = cv2.resize(image, (self.size,
-                                 self.size))
+        image = cv2.resize(image, (self.size, self.size))
         return image, boxes, labels
 
 
@@ -229,7 +228,7 @@ class RandomSampleCrop(object):
         self.sample_options = (
             # using entire original input image
             None,
-            # sample a patch s.t. MIN jaccard w/ obj in .1,.3,.4,.7,.9
+            # sample a patch s.t. MIN jaccard w/ obj in .1,.3,.5,.7,.9
             # add (0.5, None),
             (0.1, None),
             (0.3, None),
