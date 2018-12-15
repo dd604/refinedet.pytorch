@@ -107,7 +107,7 @@ class Detect(nn.Module):
         # flt_copy = flt.clone()
         # flt[(rank > self.keep_top_k).unsqueeze(-1).expand_as(flt)].fill_(0)
         # print(torch.sum(flt_copy != flt))
-        flt[(rank > self.keep_top_k).unsqueeze(-1).expand_as(flt)] = 0
+        #flt[(rank > self.keep_top_k).unsqueeze(-1).expand_as(flt)] = 0
         # print(torch.sum(flt_copy != flt))
         # flt.view(num, self.num_classes, self.top_k_per_class, 5)
         
