@@ -3,7 +3,7 @@ import os
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-from libs.utils.net_utils import TCB, weights_init
+from libs.utils.net_utils import TCB, make_special_tcb_layer, weights_init
 from libs.modules.prior_box import PriorBox
 from libs.modules.detect_layer import Detect
 from libs.modules.arm_loss import ARMLoss
@@ -21,6 +21,7 @@ class RefineDet(nn.Module):
         self.num_classes = num_classes
         self.cfg = cfg
         self.prior_layer = PriorBox(self.cfg)
+        self.is_batchnorm = False
         # priors are on cpu, their type will be converted accordingly in later
         self.priors = Variable(self.prior_layer.forward(), volatile=True)
         # vgg backbone
@@ -52,36 +53,24 @@ class RefineDet(nn.Module):
 
     def _init_modules(self, model_path=None, pretrained=True, fine_tuning=True):
         """
-        One should rewrite this function and call _init_part_modules()
+        One should overwrite this function and call _init_part_modules()
         """
-        raise NotImplementedError('You should rewrite the "_init_modules" function when '
-                                  'inheriting this class')
+        raise NotImplementedError('You should overwrite the `_init_modules` '
+                                  'function when inheriting this class.')
     
     def _init_part_modules(self):
         # this must be set with cfg
         self.internal_channels = self.cfg['tcb_channles']
         self.pyramid_layer1 = TCB(self.layers_out_channels[0], self.internal_channels,
-                             self.internal_channels)
+                             self.internal_channels, self.is_batchnorm)
         self.pyramid_layer2 = TCB(self.layers_out_channels[1], self.internal_channels,
-                             self.internal_channels)
+                             self.internal_channels, self.is_batchnorm)
         self.pyramid_layer3 = TCB(self.layers_out_channels[2], self.internal_channels,
-                             self.internal_channels)
+                             self.internal_channels, self.is_batchnorm)
         # The pyramid_layer4 has a different constructure
         self.top_in_channels = self.layers_out_channels[3]
-        top_layers = [nn.Conv2d(self.top_in_channels, self.internal_channels,
-                                kernel_size=3, padding=1),
-                      # nn.BatchNorm2d(self.internal_channels),
-                      nn.ReLU(inplace=True)]
-        # repeat twice
-        top_layers += [nn.Conv2d(self.internal_channels, self.internal_channels,
-                                  kernel_size=3, padding=1),
-                       # nn.BatchNorm2d(self.internal_channels),
-                       nn.ReLU(inplace=True),
-                       nn.Conv2d(self.internal_channels, self.internal_channels,
-                                  kernel_size=3, padding=1),
-                       # nn.BatchNorm2d(self.internal_channels),
-                       nn.ReLU(inplace=True)]
-        self.pyramid_layer4 = nn.ModuleList(top_layers)
+        self.pyramid_layer4 = nn.ModuleList(make_special_tcb_layer(
+            self.top_in_channels, self.internal_channels, self.is_batchnorm))
         
         # arm and odm
         self._build_arm_head()

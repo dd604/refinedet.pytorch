@@ -64,7 +64,7 @@ class Detect(nn.Module):
         num = arm_loc_data.size(0)
         output = torch.zeros(num, self.num_classes, self.top_k_per_class,
                              5).type_as(loc_data)
-        # Predict ROIs of ARM.
+        # Predict ROIs of ARM and convert them to priors.
         refined_priors = refine_priors(arm_loc_data, prior_data, self.arm_variance)
         # select
         # For each image, keep keep_top_k,

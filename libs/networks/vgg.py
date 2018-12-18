@@ -50,7 +50,7 @@ key_layer_ids = [22+1, 29+1, -1, -1]
 # out_channels of conv4_3, conv5_3, conv_fc7, conv6_2
 # [512, 512, 1024, 512]
 layers_out_channels = [base[12], base[16], base[19], extras[-1]]
-
+is_batchnorm = False
 
 
 def make_vgg_layers(cfg=base, batch_norm=False):

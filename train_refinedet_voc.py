@@ -7,6 +7,8 @@ import torch.backends.cudnn as cudnn
 import torch.utils.data as data
 from libs.utils.augmentations import SSDAugmentation
 from libs.networks.vgg_refinedet import VGGRefineDet
+from libs.networks.resnet_refinedet import ResNetRefineDet
+
 from libs.dataset.config import voc, coco, MEANS
 from libs.dataset.coco import COCO_ROOT, COCODetection, COCO_CLASSES
 from libs.dataset.voc0712 import VOC_ROOT, VOCDetection, \
@@ -29,6 +31,8 @@ parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO'],
                     type=str, help='VOC or COCO')
 parser.add_argument('--dataset_root', default='/root/dataset/voc/VOCdevkit/',
                     help='Dataset root directory path')
+parser.add_argument('--network', default='vgg16',
+                    help='Pretrained base model')
 parser.add_argument('--basenet', default='vgg16_reducedfc.pth',
                     help='Pretrained base model')
 parser.add_argument('--batch_size', default=32, type=int,
@@ -51,7 +55,7 @@ parser.add_argument('--gamma', default=0.1, type=float,
                     help='Gamma update for SGD')
 parser.add_argument('--visdom', default=False, type=str2bool,
                     help='Use visdom for loss visualization')
-parser.add_argument('--save_folder', default='weights/',
+parser.add_argument('--save_folder', default='weights/vgg16',
                     help='Directory for saving checkpoint models')
 args = parser.parse_args()
 
@@ -100,26 +104,29 @@ def train():
                                            ('2012', 'trainval')],
                                transform=SSDAugmentation(cfg['min_dim'],
                                                          MEANS))
-        
+    str_input_size = str(cfg['min_dim'])
     # pdb.set_trace()
-    vgg_refinedet = VGGRefineDet(cfg['num_classes'], cfg)
+    if args.network == 'vgg16':
+        refinedet = VGGRefineDet(cfg['num_classes'], cfg)
+    elif args.network == 'resnet101':
+        refinedet = ResNetRefineDet(cfg['num_classes'], cfg)
 
-    vgg_refinedet.create_architecture(
+    refinedet.create_architecture(
         os.path.join(args.save_folder, args.basenet), pretrained=True,
         fine_tuning=True)
-    net = vgg_refinedet
+    net = refinedet
     if args.cuda:
         # refinedet = refinedet.cuda(device_ids)
         # net = torch.nn.DataParallel(refinedet,
         #         device_ids=device_ids).cuda(device_ids[0])
         # net = torch.nn.DataParallel(
-        #     vgg_refinedet, device_ids=device_ids).cuda()
-        net = torch.nn.DataParallel(vgg_refinedet).cuda()
+        #     refinedet, device_ids=device_ids).cuda()
+        net = torch.nn.DataParallel(refinedet).cuda()
         cudnn.benchmark = True
       
     if args.resume:
         print('Resuming training, loading {}...'.format(args.resume))
-        vgg_refinedet.load_weights(args.resume)
+        refinedet.load_weights(args.resume)
 
     # pdb.set_trace()
     params = net.state_dict()
@@ -218,15 +225,17 @@ def train():
                     multi_loss_loc.data[0], multi_loss_conf.data[0],
                     iter_plot, epoch_plot, 'append')
     
-            if iteration != 0 and iteration % 2000 == 0:
+            if iteration != 0 and iteration % cfg['checkpoint_step'] == 0:
                 print('Saving state, iter:', iteration)
-                torch.save(vgg_refinedet.state_dict(), 'weights/refinedet320_' +
+                torch.save(refinedet.state_dict(),
+                           args.save_folder +
+                           'refinedet{0}_'.format(str_input_size) +
                            args.dataset + '_' +
                            repr(iteration) + '.pth')
 
             iteration += 1
         
-    torch.save(vgg_refinedet.state_dict(),
+    torch.save(refinedet.state_dict(),
                args.save_folder + '' + args.dataset + '.pth')
             
             
