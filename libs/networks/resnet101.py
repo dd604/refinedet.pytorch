@@ -23,6 +23,7 @@ class ExtraResModule(nn.Module):
         super(ExtraResModule, self).__init__()
         stride = 2
         expansion = 4
+        # pdb.set_trace()
         out_channels = expansion * internal_channels
         downsample = nn.Sequential(
             nn.Conv2d(in_channels, out_channels,
@@ -31,7 +32,7 @@ class ExtraResModule(nn.Module):
         )
         self.resbody = Bottleneck(in_channels, internal_channels,
                                   stride=stride, downsample=downsample)
-        self.downsample = downsample
+        # self.downsample = downsample
     
     def forward(self, x):
         return self.resbody(x)

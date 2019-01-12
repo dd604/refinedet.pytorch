@@ -7,6 +7,9 @@ import torch.utils.data as data
 import torchvision.transforms as transforms
 import cv2
 import numpy as np
+from PIL import Image
+import pdb
+
 
 # COCO_ROOT = osp.join(HOME, 'data/coco/')
 COCO_ROOT = '/root/dataset/coco'
@@ -64,7 +67,7 @@ class COCOAnnotationTransform(object):
                 bbox[2] += bbox[0]
                 bbox[3] += bbox[1]
                 label_idx = self.label_map[obj['category_id']] - 1
-                final_box = list(np.array(bbox)/scale)
+                final_box = list(np.array(bbox) / scale)
                 final_box.append(label_idx)
                 res += [final_box]  # [xmin, ymin, xmax, ymax, label_idx]
             else:
@@ -97,7 +100,29 @@ class COCODetection(data.Dataset):
         self.transform = transform
         self.target_transform = target_transform
         self.name = dataset_name
-
+        self.exclude_corrupted_image()
+    
+    def exclude_corrupted_image(self):
+        ids = self.ids[:]
+        bad_ids = [167126]
+        self.ids = [cur for cur in ids if not (cur in bad_ids)]
+        
+        # bad (167126, COCO_train2014_000000167126.jpg)
+        # pdb.set_trace()
+        # for img_id in ids:
+        #     img_path = osp.join(self.root, self.coco.loadImgs(img_id)[0]['file_name'])
+        #     assert osp.exists(img_path), 'Image path does not exist: {}'.format(img_path)
+        #     try:
+        #         img_obj = Image.open(img_path).convert('RGB')
+        #         # img = cv2.imread(img_path)
+        #         shape = np.asarray(img_obj).shape
+        #         if (len(shape) != 3) or (shape[-1] != 3):
+        #             continue
+        #         self.ids.append(img_id)
+        #     except:
+        #         print('Delete image: (%d, %s)' % (img_id, img_path))
+            
+            
     def __getitem__(self, index):
         """
         Args:
@@ -127,7 +152,9 @@ class COCODetection(data.Dataset):
         target = self.coco.loadAnns(ann_ids)
         path = osp.join(self.root, self.coco.loadImgs(img_id)[0]['file_name'])
         assert osp.exists(path), 'Image path does not exist: {}'.format(path)
-        img = cv2.imread(osp.join(self.root, path))
+        # img = cv2.imread(path)
+        img_obj = Image.open(path).convert('RGB')
+        img = np.asarray(img_obj)[:, :, ::-1]
         height, width, _ = img.shape
         if self.target_transform is not None:
             target = self.target_transform(target, width, height)

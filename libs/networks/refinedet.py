@@ -69,7 +69,8 @@ class RefineDet(nn.Module):
                              self.internal_channels, self.is_batchnorm)
         # The pyramid_layer4 has a different constructure
         self.top_in_channels = self.layers_out_channels[3]
-        self.pyramid_layer4 = nn.ModuleList(make_special_tcb_layer(
+        # pdb.set_trace()
+        self.pyramid_layer4 = nn.Sequential(*make_special_tcb_layer(
             self.top_in_channels, self.internal_channels, self.is_batchnorm))
         
         # arm and odm
@@ -107,9 +108,7 @@ class RefineDet(nn.Module):
         (c1, c2, c3, c4) = forward_features
         # pyramid features
         # Do not overwrite c4
-        p4 = self.pyramid_layer4[0](c4)
-        for k in xrange(1, len(self.pyramid_layer4)):
-            p4 = self.pyramid_layer4[k](p4)
+        p4 = self.pyramid_layer4(c4)
         p3 = self.pyramid_layer3(c3, p4)
         p2 = self.pyramid_layer2(c2, p3)
         p1 = self.pyramid_layer1(c1, p2)
@@ -199,8 +198,8 @@ class RefineDet(nn.Module):
         num_classes = 2
         # Relu module in self.layer# does not have 'out_channels' attribution,
         # so we must supply layers_out_channles as inputs for 'Conv2d'
-        assert (len(self.layers_out_channels) == len(self.cfg['mbox']),
-                'Length of layers_out_channels must match length of cfg["mbox"]')
+        assert len(self.layers_out_channels) == len(self.cfg['mbox']), \
+                'Length of layers_out_channels must match length of cfg["mbox"]'
         for k, v in enumerate(self.layers_out_channels):
             loc_layers += [nn.Conv2d(v, self.cfg['mbox'][k] * 4,
                                      kernel_size=3, padding=1)]

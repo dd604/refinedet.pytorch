@@ -86,19 +86,22 @@ class TCB(nn.Module):
         """
         super(TCB, self).__init__()
         self.is_batchnorm = is_batchnorm
+        # Use bias if is_batchnorm is False, donot otherwise.
+        use_bias = not self.is_batchnorm
         # conv + bn + relu
         self.conv1 = nn.Conv2d(lateral_channels, internal_channels,
-                               kernel_size=3, padding=1)
+                               kernel_size=3, padding=1, bias=use_bias)
         # ((conv2 + bn2) element-wise add  (deconv + deconv_bn)) + relu
         # batch normalization before element-wise addition
         self.conv2 = nn.Conv2d(internal_channels, internal_channels,
-                               kernel_size=3, padding=1)
+                               kernel_size=3, padding=1, bias=use_bias)
         self.deconv = nn.ConvTranspose2d(channles, internal_channels,
                                          kernel_size=3, stride=2,
-                                         padding=1, output_padding=1)
+                                         padding=1, output_padding=1,
+                                         bias=use_bias)
         # conv + bn + relu
         self.conv3 = nn.Conv2d(internal_channels, internal_channels,
-                               kernel_size=3, padding=1)
+                               kernel_size=3, padding=1, bias=use_bias)
         self.relu = nn.ReLU(inplace=True)
         
         if self.is_batchnorm:
@@ -146,14 +149,11 @@ def make_special_tcb_layer(in_channels, internal_channels,
     else:
         layers = [nn.Conv2d(in_channels, internal_channels,
                             kernel_size=3, padding=1),
-                  # nn.BatchNorm2d(internal_channels),
                   nn.ReLU(inplace=True),
                   nn.Conv2d(internal_channels, internal_channels,
                             kernel_size=3, padding=1),
-                  # nn.BatchNorm2d(internal_channels),
                   nn.ReLU(inplace=True),
                   nn.Conv2d(internal_channels, internal_channels,
                             kernel_size=3, padding=1),
-                  # nn.BatchNorm2d(internal_channels),
                   nn.ReLU(inplace=True)]
     return layers

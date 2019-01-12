@@ -19,8 +19,9 @@ class ResNetRefineDet(_RefineDet):
         super(ResNetRefineDet, self).__init__(num_classes, cfg)
     
     def _init_modules(self, model_path=None, pretrained=True,
-                      fine_tuning=True):
+                      fine_tuning=False):
         self.base = resnet101(pretrained=False)
+        # pdb.set_trace()
         self.pretrained = pretrained
         self.model_path = model_path
         # self.fine_tuning = self.fine_tuning
@@ -29,6 +30,7 @@ class ResNetRefineDet(_RefineDet):
             state_dict = torch.load(self.model_path)
             self.base.load_state_dict({k: v for k, v in state_dict.items()
                                        if k in self.base.state_dict()})
+            
             # fix weights
             if not fine_tuning:
                 for param in self.base.parameters():
@@ -38,9 +40,13 @@ class ResNetRefineDet(_RefineDet):
         
         self.extra = ExtraResModule(self.layers_out_channels[-2],
                                     self.layers_out_channels[-1] // 4)
-        self.layer1 = nn.Sequential(self.base.conv1, self.base.bn1, self.base.relu,
-                                    self.base.maxpool, self.base.layer1,
+        self.layer1 = nn.Sequential(self.base.conv1,
+                                    self.base.bn1,
+                                    self.base.relu,
+                                    self.base.maxpool,
+                                    self.base.layer1,
                                     self.base.layer2)
+        # pdb.set_trace()
         self.layer2 = self.base.layer3
         self.layer3 = self.base.layer4
         self.layer4 = self.extra
