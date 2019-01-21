@@ -11,7 +11,7 @@ def weights_init(m):
     # print(m)
     if isinstance(m, nn.Conv1d):
         init.normal(m.weight.data)
-    if m.bias is not None:
+        if m.bias is not None:
             init.constant(m.bias.data, 0)
     elif isinstance(m, nn.Conv2d):
         init.xavier_normal(m.weight.data)
@@ -49,34 +49,6 @@ def weights_init(m):
         init.xavier_normal(m.weight.data)
         if m.bias is not None:
             init.constant(m.bias.data, 0)
-        init.constant(m.bias.data, 0)
-    elif isinstance(m, nn.Conv2d):
-        init.xavier_normal(m.weight.data)
-        init.constant(m.bias.data, 0)
-    elif isinstance(m, nn.Conv3d):
-        init.xavier_normal(m.weight.data)
-        init.constant(m.bias.data, 0)
-    elif isinstance(m, nn.ConvTranspose1d):
-        init.normal(m.weight.data)
-        init.constant(m.bias.data, 0)
-    elif isinstance(m, nn.ConvTranspose2d):
-        init.xavier_normal(m.weight.data)
-        init.constant(m.bias.data, 0)
-    elif isinstance(m, nn.ConvTranspose3d):
-        init.xavier_normal(m.weight.data)
-        init.constant(m.bias.data, 0)
-    elif isinstance(m, nn.BatchNorm1d):
-        init.normal(m.weight.data, mean=1, std=0.02)
-        init.constant(m.bias.data, 0)
-    elif isinstance(m, nn.BatchNorm2d):
-        init.normal(m.weight.data, mean=1, std=0.02)
-        init.constant(m.bias.data, 0)
-    elif isinstance(m, nn.BatchNorm3d):
-        init.normal(m.weight.data, mean=1, std=0.02)
-        init.constant(m.bias.data, 0)
-    elif isinstance(m, nn.Linear):
-        init.xavier_normal(m.weight.data)
-        init.constant(m.bias.data, 0)
     # else:
     #     print('Warning, an unknowned instance!!')
     #     print(m)
@@ -105,9 +77,8 @@ class TCB(nn.Module):
     Transfer Connection Block Architecture
     This block
     """
-    
     def __init__(self, lateral_channels, channles,
-                 internal_channels=256):
+                 internal_channels=256, is_batchnorm=False):
         """
         :param lateral_channels: number of forward feature channles
         :param channles: number of pyramid feature channles
@@ -138,29 +109,6 @@ class TCB(nn.Module):
             self.bn2 = nn.BatchNorm2d(internal_channels)
             self.deconv_bn = nn.BatchNorm2d(internal_channels)
             self.bn3 = nn.BatchNorm2d(internal_channels)
-        # conv + bn + relu
-        self.conv1 = nn.Conv2d(lateral_channels, internal_channels,
-                               kernel_size=3, padding=1)
-        # self.bn1 = nn.BatchNorm2d(internal_channels)
-        self.relu1 = nn.ReLU(inplace=True)
-        
-        # ((conv2 + bn2) element-wise add  (deconv + deconv_bn)) + relu
-        # batch normalization before element-wise addition
-        self.conv2 = nn.Conv2d(internal_channels, internal_channels,
-                               kernel_size=3, padding=1)
-        # self.bn2 = nn.BatchNorm2d(internal_channels)
-        self.deconv = nn.ConvTranspose2d(channles, internal_channels,
-                                         kernel_size=3, stride=2,
-                                         padding=1, output_padding=1)
-        # self.deconv_bn = nn.BatchNorm2d(internal_channels)
-        self.relu2 = nn.ReLU(inplace=True)
-        
-        # conv + bn + relu
-        self.conv3 = nn.Conv2d(internal_channels, internal_channels,
-                               kernel_size=3, padding=1)
-        # self.bn3 = nn.BatchNorm2d(internal_channels)
-        self.relu3 = nn.ReLU(inplace=True)
-        
         # attribution
         self.out_channels = internal_channels
     
@@ -209,14 +157,3 @@ def make_special_tcb_layer(in_channels, internal_channels,
                             kernel_size=3, padding=1),
                   nn.ReLU(inplace=True)]
     return layers
-        # no batchnorm
-        lateral_out = self.relu1(self.conv1(lateral))
-        # element-wise addation
-        out = self.relu2(
-            self.conv2(lateral_out) +
-            self.deconv(x)
-        )
-        
-        out = self.relu3(self.conv3(out))
-        
-        return out

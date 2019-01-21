@@ -31,7 +31,6 @@ class ARMLoss(nn.Module):
                 shape: [batch_size,num_objs,5]
                 (last idx is the label, 0 for background, >0 for target).
             
-                shape: [batch_size,num_objs,5] (last idx is the label).
         """
         loc_pred, conf_pred = predictions
         num = loc_pred.size(0)
@@ -44,12 +43,18 @@ class ARMLoss(nn.Module):
             loc_t = loc_t.cuda()
             conf_t = conf_t.cuda()
             
-        #     pdb.set_trace()
+        pdb.set_trace()
         for idx in xrange(num):
+            print(idx)
+            if idx == 16:
+                pdb.set_trace()
             cur_targets = targets[idx].data
-            target_flag = cur_targets[:, -1].data > 0
-            valid_targets = target_flag.unsqueeze(
-                target_flag.dim()).expand_as(cur_targets).view(
+            target_flag = cur_targets[:, -1] > 0
+            target_flag = target_flag.unsqueeze(
+                target_flag.dim()).expand_as(
+                cur_targets).contiguous().view(
+                -1, cur_targets.size()[-1])
+            valid_targets = cur_targets[target_flag].contiguous().view(
                 -1, cur_targets.size()[-1])
             truths = valid_targets[:, :-1]
             labels = torch.ones_like(valid_targets[:, -1])
@@ -57,9 +62,6 @@ class ARMLoss(nn.Module):
             # truths = targets[idx][:, :-1].data
             # Binary classes
             # labels = torch.zeros_like(targets[idx][:, -1].data)
-            truths = targets[idx][:, :-1].data
-            # Binary classes
-            labels = torch.zeros_like(targets[idx][:, -1].data)
             # encode results are stored in loc_t and conf_t
             match(self.overlap_thresh, truths, priors.data, self.variance,
                   labels, loc_t, conf_t, idx)

@@ -3,11 +3,7 @@ import os
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-<<<<<<< HEAD
 from libs.utils.net_utils import TCB, make_special_tcb_layer, weights_init
-=======
-from libs.utils.net_utils import TCB, weights_init
->>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
 from libs.modules.prior_box import PriorBox
 from libs.modules.detect_layer import Detect
 from libs.modules.arm_loss import ARMLoss
@@ -25,10 +21,7 @@ class RefineDet(nn.Module):
         self.num_classes = num_classes
         self.cfg = cfg
         self.prior_layer = PriorBox(self.cfg)
-<<<<<<< HEAD
         self.is_batchnorm = False
-=======
->>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
         # priors are on cpu, their type will be converted accordingly in later
         self.priors = Variable(self.prior_layer.forward(), volatile=True)
         # vgg backbone
@@ -60,23 +53,15 @@ class RefineDet(nn.Module):
 
     def _init_modules(self, model_path=None, pretrained=True, fine_tuning=True):
         """
-<<<<<<< HEAD
         One should overwrite this function and call _init_part_modules()
         """
         raise NotImplementedError('You should overwrite the `_init_modules` '
                                   'function when inheriting this class.')
-=======
-        One should rewrite this function and call _init_part_modules()
-        """
-        raise NotImplementedError('You should rewrite the "_init_modules" function when '
-                                  'inheriting this class')
->>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
     
     def _init_part_modules(self):
         # this must be set with cfg
         self.internal_channels = self.cfg['tcb_channles']
         self.pyramid_layer1 = TCB(self.layers_out_channels[0], self.internal_channels,
-<<<<<<< HEAD
                              self.internal_channels, self.is_batchnorm)
         self.pyramid_layer2 = TCB(self.layers_out_channels[1], self.internal_channels,
                              self.internal_channels, self.is_batchnorm)
@@ -87,29 +72,6 @@ class RefineDet(nn.Module):
         # pdb.set_trace()
         self.pyramid_layer4 = nn.Sequential(*make_special_tcb_layer(
             self.top_in_channels, self.internal_channels, self.is_batchnorm))
-=======
-                             self.internal_channels)
-        self.pyramid_layer2 = TCB(self.layers_out_channels[1], self.internal_channels,
-                             self.internal_channels)
-        self.pyramid_layer3 = TCB(self.layers_out_channels[2], self.internal_channels,
-                             self.internal_channels)
-        # The pyramid_layer4 has a different constructure
-        self.top_in_channels = self.layers_out_channels[3]
-        top_layers = [nn.Conv2d(self.top_in_channels, self.internal_channels,
-                                kernel_size=3, padding=1),
-                      # nn.BatchNorm2d(self.internal_channels),
-                      nn.ReLU(inplace=True)]
-        # repeat twice
-        top_layers += [nn.Conv2d(self.internal_channels, self.internal_channels,
-                                  kernel_size=3, padding=1),
-                       # nn.BatchNorm2d(self.internal_channels),
-                       nn.ReLU(inplace=True),
-                       nn.Conv2d(self.internal_channels, self.internal_channels,
-                                  kernel_size=3, padding=1),
-                       # nn.BatchNorm2d(self.internal_channels),
-                       nn.ReLU(inplace=True)]
-        self.pyramid_layer4 = nn.ModuleList(top_layers)
->>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
         
         # arm and odm
         self._build_arm_head()
@@ -146,13 +108,7 @@ class RefineDet(nn.Module):
         (c1, c2, c3, c4) = forward_features
         # pyramid features
         # Do not overwrite c4
-<<<<<<< HEAD
         p4 = self.pyramid_layer4(c4)
-=======
-        p4 = self.pyramid_layer4[0](c4)
-        for k in xrange(1, len(self.pyramid_layer4)):
-            p4 = self.pyramid_layer4[k](p4)
->>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
         p3 = self.pyramid_layer3(c3, p4)
         p2 = self.pyramid_layer2(c2, p3)
         p1 = self.pyramid_layer1(c1, p2)
@@ -168,7 +124,6 @@ class RefineDet(nn.Module):
                                      self.priors.data)
         elif targets is not None:
             return self.calculate_loss(targets)
-<<<<<<< HEAD
         # return self.arm_predictions, self.odm_predictions
         
     
@@ -178,11 +133,6 @@ class RefineDet(nn.Module):
         # odm_loss_loc, odm_loss_conf = self.odm_loss_layer(
         #     self.arm_predictions, self.odm_predictions, self.priors, targets)
         
-=======
-        
-    
-    def calculate_loss(self, targets):
->>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
         arm_loss_loc, arm_loss_conf = self.arm_loss_layer(
             self.arm_predictions, self.priors, targets)
         odm_loss_loc, odm_loss_conf = self.odm_loss_layer(
@@ -254,13 +204,8 @@ class RefineDet(nn.Module):
         num_classes = 2
         # Relu module in self.layer# does not have 'out_channels' attribution,
         # so we must supply layers_out_channles as inputs for 'Conv2d'
-<<<<<<< HEAD
         assert len(self.layers_out_channels) == len(self.cfg['mbox']), \
                 'Length of layers_out_channels must match length of cfg["mbox"]'
-=======
-        assert (len(self.layers_out_channels) == len(self.cfg['mbox']),
-                'Length of layers_out_channels must match length of cfg["mbox"]')
->>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
         for k, v in enumerate(self.layers_out_channels):
             loc_layers += [nn.Conv2d(v, self.cfg['mbox'][k] * 4,
                                      kernel_size=3, padding=1)]

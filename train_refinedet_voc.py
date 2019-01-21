@@ -7,7 +7,9 @@ import torch.backends.cudnn as cudnn
 import torch.utils.data as data
 from libs.utils.augmentations import SSDAugmentation
 from libs.networks.vgg_refinedet import VGGRefineDet
-from libs.dataset.config import voc, coco, MEANS
+from libs.networks.resnet_refinedet import ResNetRefineDet
+
+from libs.dataset.config import voc320, voc512, coco320, coco512, MEANS
 from libs.dataset.coco import COCO_ROOT, COCODetection, COCO_CLASSES
 from libs.dataset.voc0712 import VOC_ROOT, VOCDetection, \
     VOCAnnotationTransform
@@ -15,7 +17,8 @@ from libs.dataset import *
 
 import pdb
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
 
 
 def str2bool(v):
@@ -29,8 +32,12 @@ parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO'],
                     type=str, help='VOC or COCO')
 parser.add_argument('--dataset_root', default='/root/dataset/voc/VOCdevkit/',
                     help='Dataset root directory path')
+parser.add_argument('--network', default='vgg16',
+                    help='Pretrained base model')
 parser.add_argument('--basenet', default='vgg16_reducedfc.pth',
                     help='Pretrained base model')
+parser.add_argument('--input_size', default=320, type=int,
+                    help='Input size for training')
 parser.add_argument('--batch_size', default=32, type=int,
                     help='Batch size for training')
 parser.add_argument('--resume', default=None, type=str,
@@ -51,13 +58,15 @@ parser.add_argument('--gamma', default=0.1, type=float,
                     help='Gamma update for SGD')
 parser.add_argument('--visdom', default=False, type=str2bool,
                     help='Use visdom for loss visualization')
-parser.add_argument('--save_folder', default='weights/',
+parser.add_argument('--save_folder', default='weights/vgg16',
                     help='Directory for saving checkpoint models')
 args = parser.parse_args()
 
+num_gpus = 1
 if torch.cuda.is_available():
     print('CUDA devices: ', torch.cuda.device)
     print('GPU numbers: ', torch.cuda.device_count())
+    num_gpus = torch.cuda.device_count()
     
 if torch.cuda.is_available():
     if args.cuda:
@@ -80,57 +89,53 @@ if args.visdom:
     
 def train():
     if args.dataset == 'COCO':
-        if args.dataset_root == VOC_ROOT:
-            if not os.path.exists(COCO_ROOT):
-                parser.error('Must specify dataset_root if specifying dataset')
-            print('WARNING: Using default COCO dataset_root because ' +
-                  '--dataset_root was not specified.')
-            args.dataset_root = COCO_ROOT
-        cfg = coco
+        args.dataset_root = COCO_ROOT
+        cfg = (coco320, coco512)[args.input_size==512]
         dataset = COCODetection(root=args.dataset_root,
                                 transform=SSDAugmentation(cfg['min_dim'],
                                                           MEANS))
     elif args.dataset == 'VOC':
-        if args.dataset_root == COCO_ROOT:
-            parser.error('Must specify dataset if specifying dataset_root')
-        cfg = voc
+        args.dataset_root = VOC_ROOT
+        cfg = (voc320, voc512)[args.input_size==512]
         dataset = VOCDetection(root=args.dataset_root,
                                # image_sets=[('2007', 'trainval')],
                                image_sets=[('2007', 'trainval'),
                                            ('2012', 'trainval')],
                                transform=SSDAugmentation(cfg['min_dim'],
                                                          MEANS))
-        
+    str_input_size = str(cfg['min_dim'])
     # pdb.set_trace()
-    vgg_refinedet = VGGRefineDet(cfg['num_classes'], cfg)
+    # pdb.set_trace()
+    if args.network == 'vgg16':
+        refinedet = VGGRefineDet(cfg['num_classes'], cfg)
+    elif args.network == 'resnet101':
+        refinedet = ResNetRefineDet(cfg['num_classes'], cfg)
 
-    vgg_refinedet.create_architecture(
+    refinedet.create_architecture(
         os.path.join(args.save_folder, args.basenet), pretrained=True,
         fine_tuning=True)
-    net = vgg_refinedet
+    net = refinedet
     if args.cuda:
-        # refinedet = refinedet.cuda(device_ids)
-        # net = torch.nn.DataParallel(refinedet,
-        #         device_ids=device_ids).cuda(device_ids[0])
-        # net = torch.nn.DataParallel(
-        #     vgg_refinedet, device_ids=device_ids).cuda()
-        net = torch.nn.DataParallel(vgg_refinedet).cuda()
+        if num_gpus > 1:
+            net = torch.nn.DataParallel(refinedet)
+        else:
+            net = refinedet.cuda()
         cudnn.benchmark = True
       
     if args.resume:
         print('Resuming training, loading {}...'.format(args.resume))
-        vgg_refinedet.load_weights(args.resume)
+        refinedet.load_weights(args.resume)
 
     # pdb.set_trace()
     params = net.state_dict()
     # for k, v in params.items():
     #     print(k)
     #     print(v.shape)
-    # optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()),
-    #                       lr=args.lr, momentum=args.momentum,
-    #                       weight_decay=args.weight_decay)
-    optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
+    optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()),
+                          lr=args.lr, momentum=args.momentum,
                           weight_decay=args.weight_decay)
+#     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
+#                           weight_decay=args.weight_decay)
     net.train()
     print('Training RefineDet on:', dataset.name)
     print('Using the specified args:')
@@ -177,7 +182,7 @@ def train():
             multi_loc_loss = 0
             multi_conf_loss = 0
         
-        # pdb.set_trace()
+        pdb.set_trace()
         for i_batch, (images, targets) in enumerate(data_loader):
             if iteration in cfg['lr_steps']:
                 step_index += 1
@@ -185,25 +190,37 @@ def train():
     
             if args.cuda:
                 images = Variable(images.cuda())
-                targets = [Variable(ann.cuda(), volatile=True) for ann in targets]
+                targets = Variable(targets.cuda())
+                # targets = [Variable(ann.cuda()) for ann in targets]
             else:
                 images = Variable(images)
-                targets = [Variable(ann, volatile=True) for ann in targets]
+                targets = Variable(targets)
             # forward
             t0 = time.time()
             # pdb.set_trace()
             # backprop
             optimizer.zero_grad()
+#             net.zero_grad()
+#             arm_predictions, odm_predictions = net(images)
+#             bi_loss_loc, bi_loss_conf, multi_loss_loc, multi_loss_conf = \
+#                 net.calculate_loss(arm_predictions, odm_predictions, targets)
             bi_loss_loc, bi_loss_conf, multi_loss_loc, multi_loss_conf = \
                 net(images, targets)
-            loss = bi_loss_loc + bi_loss_conf + multi_loss_loc + multi_loss_conf
+            loss = bi_loss_loc.mean() + bi_loss_conf.mean() + \
+                   multi_loss_loc.mean() + multi_loss_conf.mean()
             loss.backward()
             optimizer.step()
             t1 = time.time()
-            total_bi_loc_loss += bi_loss_loc.data[0]
-            total_bi_conf_loss += bi_loss_conf.data[0]
-            total_multi_loc_loss += multi_loss_loc.data[0]
-            total_multi_conf_loss += multi_loss_conf.data[0]
+            if num_gpus > 1:
+                total_bi_loc_loss += bi_loss_loc.mean().data[0]
+                total_bi_conf_loss += bi_loss_conf.mean().data[0]
+                total_multi_loc_loss += multi_loss_loc.mean().data[0]
+                total_multi_conf_loss += multi_loss_conf.mean().data[0]
+            else:
+                total_bi_loc_loss += bi_loss_loc.data[0]
+                total_bi_conf_loss += bi_loss_conf.data[0]
+                total_multi_loc_loss += multi_loss_loc.data[0]
+                total_multi_conf_loss += multi_loss_conf.data[0]
             
             if iteration % 10 == 0:
                 print('timer: %.4f sec.' % (t1 - t0))
@@ -218,16 +235,18 @@ def train():
                     multi_loss_loc.data[0], multi_loss_conf.data[0],
                     iter_plot, epoch_plot, 'append')
     
-            if iteration != 0 and iteration % 2000 == 0:
+            if iteration != 0 and iteration % cfg['checkpoint_step'] == 0:
                 print('Saving state, iter:', iteration)
-                torch.save(vgg_refinedet.state_dict(), 'weights/refinedet320_' +
+                torch.save(refinedet.state_dict(),
+                           os.path.join(args.save_folder,
+                           'refinedet{0}_'.format(str_input_size) +
                            args.dataset + '_' +
-                           repr(iteration) + '.pth')
+                           repr(iteration) + '.pth'))
 
             iteration += 1
         
-    torch.save(vgg_refinedet.state_dict(),
-               args.save_folder + '' + args.dataset + '.pth')
+    torch.save(refinedet.state_dict(),
+               os.path.join(args.save_folder, args.dataset + '.pth'))
             
             
 

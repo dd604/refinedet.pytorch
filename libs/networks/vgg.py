@@ -53,7 +53,6 @@ layers_out_channels = [base[12], base[16], base[19], extras[-1]]
 is_batchnorm = False
 
 
-
 def make_vgg_layers(cfg=base, batch_norm=False):
     """
     :param cfg:
