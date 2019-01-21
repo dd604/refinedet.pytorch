@@ -33,6 +33,8 @@ class ODMLoss(nn.Module):
         :param targets: Ground truth boxes and labels for a batch,
         shape, [batch_size,num_objs,5]
         (last idx is the label, 0 for background, >0 for target).
+        :param targets: a list lenght of batch_size, each corresponds to
+        one image of the batch
         """
         arm_loc = arm_predictions[0]
         # Detach softmax of confidece predictions to block backpropation.
@@ -67,6 +69,9 @@ class ODMLoss(nn.Module):
             
             # truths = targets[idx][:, :-1].data
             # labels = targets[idx][:, -1].data
+        for idx in range(num):
+            truths = targets[idx][:, :-1].data
+            labels = targets[idx][:, -1].data
             # Refined priors of this idx
             cur_priors = refined_priors[idx]
             match(self.overlap_thresh, truths, cur_priors, self.variance,

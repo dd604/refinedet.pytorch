@@ -11,12 +11,19 @@ import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 from libs.dataset import VOC_ROOT, VOCAnnotationTransform, VOCDetection, BaseTransform
 from libs.dataset import VOC_CLASSES as labelmap
+<<<<<<< HEAD
 from libs.dataset.config import *
+=======
+from libs.dataset import *
+>>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
 import torch.utils.data as data
 
 # from ssd import build_ssd
 from libs.networks.vgg_refinedet import VGGRefineDet
+<<<<<<< HEAD
 from libs.networks.resnet_refinedet import ResNetRefineDet
+=======
+>>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
 import sys
 import os
 import time
@@ -38,6 +45,14 @@ def str2bool(v):
 
 parser = argparse.ArgumentParser(
     description='Single Shot MultiBox Detector Evaluation')
+<<<<<<< HEAD
+=======
+parser.add_argument('--trained_model',
+                    default='weights/refinedet320_VOC_60000.pth', type=str,
+                    ########default='weights/refinedet320_VOC_120000.pth', type=str,
+                    # default='weights/ssd300_mAP_77.43_v2.pth', type=str,
+                    help='Trained state_dict file path to open')
+>>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
 parser.add_argument('--save_folder', default='eval/', type=str,
                     help='File path to save results')
 parser.add_argument('--confidence_threshold', default=0.01, type=float,
@@ -388,7 +403,11 @@ def test_net(save_folder, net, cuda, dataset, transform, top_k,
     # timers
     _t = {'im_detect': Timer(), 'misc': Timer()}
     # output_dir = get_output_dir('ssd300_120000', set_type)
+<<<<<<< HEAD
     output_dir = get_output_dir('voc_detections', set_type)
+=======
+    output_dir = get_output_dir('refinedet320_116000', set_type)
+>>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
     det_file = os.path.join(output_dir, 'detections.pkl')
 
     for i in range(num_images):
@@ -438,31 +457,50 @@ def evaluate_detections(box_list, output_dir, dataset):
 
 if __name__ == '__main__':
     # load net
+<<<<<<< HEAD
     input_size = 512
     cfg = (voc320, voc512)[input_size==512]
 #     net = ResNetRefineDet(cfg['num_classes'], cfg)
     net = VGGRefineDet(cfg['num_classes'], cfg)
+=======
+    num_classes = len(labelmap) + 1                      # +1 for background
+    # net = build_ssd('test', 300, num_classes)            # initialize SSD
+    # net = build_refinedet('test', voc, 320, 21)
+    net = VGGRefineDet(voc['num_classes'], voc)  # initialize SSD
+>>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
     net.create_architecture()
     net.eval()
     net = net.cuda()
     
     # load weights
+<<<<<<< HEAD
     weights_path = './weights/vgg16/refinedet512_VOC_120000.pth'
     #weights_path = './weights/resnet101refinedet320_VOC_120000.pth'
     #weights_path = './weights/refinedet320_VOC_100000.pth'
+=======
+    weights_path = './weights/refinedet320_VOC_120000.pth'
+>>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
     weights = torch.load(weights_path)
     net.load_state_dict(weights)
      
     print('Finished loading model!')
     # load data
     dataset = VOCDetection(args.voc_root, [('2007', set_type)],
+<<<<<<< HEAD
                            BaseTransform(cfg['min_dim'], dataset_mean),
+=======
+                           BaseTransform(320, dataset_mean),
+>>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
                            VOCAnnotationTransform())
     if args.cuda:
         net = net.cuda()
         cudnn.benchmark = True
     # evaluation
     test_net(args.save_folder, net, args.cuda, dataset,
+<<<<<<< HEAD
              BaseTransform(cfg['min_dim'], dataset_mean), 
              args.top_k, cfg['min_dim'],
+=======
+             BaseTransform(320, dataset_mean), args.top_k, 320,
+>>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
              thresh=args.confidence_threshold)

@@ -31,6 +31,7 @@ class ARMLoss(nn.Module):
                 shape: [batch_size,num_objs,5]
                 (last idx is the label, 0 for background, >0 for target).
             
+                shape: [batch_size,num_objs,5] (last idx is the label).
         """
         loc_pred, conf_pred = predictions
         num = loc_pred.size(0)
@@ -56,6 +57,9 @@ class ARMLoss(nn.Module):
             # truths = targets[idx][:, :-1].data
             # Binary classes
             # labels = torch.zeros_like(targets[idx][:, -1].data)
+            truths = targets[idx][:, :-1].data
+            # Binary classes
+            labels = torch.zeros_like(targets[idx][:, -1].data)
             # encode results are stored in loc_t and conf_t
             match(self.overlap_thresh, truths, priors.data, self.variance,
                   labels, loc_t, conf_t, idx)
