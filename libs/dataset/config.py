@@ -70,8 +70,8 @@ voc512 = {
 #
 coco320 = {
     'num_classes': 81,
-    'lr_steps': (280000, 360000, 400000), # ok
-    'max_iter': 400000, # ok
+    'lr_steps': (280000, 360000, 800000), # ok
+    'max_iter': 800000, # ok
     'checkpoint_step': 10000,
     'feature_maps': [40, 20, 10, 5], # ok
     'min_dim': 320, # ok
@@ -99,8 +99,8 @@ coco320 = {
 #
 coco512 = {
     'num_classes': 81,
-    'lr_steps': (280000, 360000, 400000), # ok
-    'max_iter': 400000, # ok
+    'lr_steps': (280000, 360000, 800000), # ok
+    'max_iter': 800000, # ok
     'checkpoint_step': 10000,
     'feature_maps': [64, 32, 16, 8],
     'min_dim': 512,

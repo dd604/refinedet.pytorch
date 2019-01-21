@@ -54,7 +54,7 @@ class ODMLoss(nn.Module):
         
         # Match refined_priors (predicted ROIs) and ground truth boxes
         # Consider each image in one batch.
-        pdb.set_trace()
+        # pdb.set_trace()
         for idx in range(num):
             cur_targets = targets[idx].data
             # Ingore background (label id is 0)

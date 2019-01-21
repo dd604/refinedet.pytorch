@@ -43,11 +43,8 @@ class ARMLoss(nn.Module):
             loc_t = loc_t.cuda()
             conf_t = conf_t.cuda()
             
-        pdb.set_trace()
+        # pdb.set_trace()
         for idx in xrange(num):
-            print(idx)
-            if idx == 16:
-                pdb.set_trace()
             cur_targets = targets[idx].data
             target_flag = cur_targets[:, -1] > 0
             target_flag = target_flag.unsqueeze(

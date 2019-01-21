@@ -62,8 +62,10 @@ class COCOAnnotationTransform(object):
         scale = np.array([width, height, width, height])
         res = []
         for obj in target:
+            # pdb.set_trace()
             if 'bbox' in obj:
                 bbox = obj['bbox']
+                bbox_save = bbox[:]
                 bbox[2] += bbox[0]
                 bbox[3] += bbox[1]
                 label_idx = self.label_map[obj['category_id']]
