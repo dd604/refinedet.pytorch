@@ -1,3 +1,4 @@
+#voc_detections
 voc_detections/
 unit_test/images.pkl
 unit_test/targets.pkl
