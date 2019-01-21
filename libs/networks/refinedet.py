@@ -124,9 +124,15 @@ class RefineDet(nn.Module):
                                      self.priors.data)
         elif targets is not None:
             return self.calculate_loss(targets)
+        # return self.arm_predictions, self.odm_predictions
         
     
     def calculate_loss(self, targets):
+        # arm_loss_loc, arm_loss_conf = self.arm_loss_layer(
+        #     self.arm_predictions, self.priors, targets)
+        # odm_loss_loc, odm_loss_conf = self.odm_loss_layer(
+        #     self.arm_predictions, self.odm_predictions, self.priors, targets)
+        
         arm_loss_loc, arm_loss_conf = self.arm_loss_layer(
             self.arm_predictions, self.priors, targets)
         odm_loss_loc, odm_loss_conf = self.odm_loss_layer(

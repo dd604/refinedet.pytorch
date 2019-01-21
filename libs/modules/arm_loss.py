@@ -28,7 +28,9 @@ class ARMLoss(nn.Module):
                 priors shape: torch.size(num_priors,4)
             priors: Priors
             targets: Ground truth boxes and labels for a batch,
-                shape: [batch_size,num_objs,5] (last idx is the label).
+                shape: [batch_size,num_objs,5]
+                (last idx is the label, 0 for background, >0 for target).
+            
         """
         loc_pred, conf_pred = predictions
         num = loc_pred.size(0)
@@ -43,9 +45,17 @@ class ARMLoss(nn.Module):
             
         #     pdb.set_trace()
         for idx in xrange(num):
-            truths = targets[idx][:, :-1].data
+            cur_targets = targets[idx].data
+            target_flag = cur_targets[:, -1].data > 0
+            valid_targets = target_flag.unsqueeze(
+                target_flag.dim()).expand_as(cur_targets).view(
+                -1, cur_targets.size()[-1])
+            truths = valid_targets[:, :-1]
+            labels = torch.ones_like(valid_targets[:, -1])
+            # targets[idx, :, :-1].data
+            # truths = targets[idx][:, :-1].data
             # Binary classes
-            labels = torch.zeros_like(targets[idx][:, -1].data)
+            # labels = torch.zeros_like(targets[idx][:, -1].data)
             # encode results are stored in loc_t and conf_t
             match(self.overlap_thresh, truths, priors.data, self.variance,
                   labels, loc_t, conf_t, idx)

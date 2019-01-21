@@ -182,7 +182,7 @@ def train():
             multi_loc_loss = 0
             multi_conf_loss = 0
         
-        # pdb.set_trace()
+        pdb.set_trace()
         for i_batch, (images, targets) in enumerate(data_loader):
             if iteration in cfg['lr_steps']:
                 step_index += 1
@@ -190,16 +190,20 @@ def train():
     
             if args.cuda:
                 images = Variable(images.cuda())
-                targets = [Variable(ann.cuda()) for ann in targets]
+                targets = Variable(targets.cuda())
+                # targets = [Variable(ann.cuda()) for ann in targets]
             else:
                 images = Variable(images)
-                targets = [Variable(ann) for ann in targets]
+                targets = Variable(targets)
             # forward
             t0 = time.time()
             # pdb.set_trace()
             # backprop
             optimizer.zero_grad()
 #             net.zero_grad()
+#             arm_predictions, odm_predictions = net(images)
+#             bi_loss_loc, bi_loss_conf, multi_loss_loc, multi_loss_conf = \
+#                 net.calculate_loss(arm_predictions, odm_predictions, targets)
             bi_loss_loc, bi_loss_conf, multi_loss_loc, multi_loss_conf = \
                 net(images, targets)
             loss = bi_loss_loc.mean() + bi_loss_conf.mean() + \

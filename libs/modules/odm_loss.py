@@ -30,8 +30,9 @@ class ODMLoss(nn.Module):
             arm_conf_pred (batch_size, num_priors, 2)
         :param odm_predictions: tuple (odm_loc_pred, odm_conf_pred)
         :param priors: (num_priors, 4)
-        :param targets: a list lenght of batch_size, each corresponds to
-        one image of the batch
+        :param targets: Ground truth boxes and labels for a batch,
+        shape, [batch_size,num_objs,5]
+        (last idx is the label, 0 for background, >0 for target).
         """
         arm_loc = arm_predictions[0]
         # Detach softmax of confidece predictions to block backpropation.
@@ -53,9 +54,19 @@ class ODMLoss(nn.Module):
         
         # Match refined_priors (predicted ROIs) and ground truth boxes
         # Consider each image in one batch.
+        pdb.set_trace()
         for idx in range(num):
-            truths = targets[idx][:, :-1].data
-            labels = targets[idx][:, -1].data
+            cur_targets = targets[idx].data
+            # Ingore background (label id is 0)
+            target_flag = cur_targets[:, -1].data > 0
+            valid_targets = target_flag.unsqueeze(
+                target_flag.dim()).expand_as(cur_targets).view(
+                -1, cur_targets.size()[-1])
+            truths = valid_targets[:, :-1]
+            labels = valid_targets[:, -1]
+            
+            # truths = targets[idx][:, :-1].data
+            # labels = targets[idx][:, -1].data
             # Refined priors of this idx
             cur_priors = refined_priors[idx]
             match(self.overlap_thresh, truths, cur_priors, self.variance,
