@@ -1,11 +1,11 @@
-<<<<<<< HEAD
+# data
+data/
 #voc_detections
 voc_detections/
 unit_test/images.pkl
 unit_test/targets.pkl
 unit_test/*.pkl
-=======
->>>>>>> 3efa668f4283428ec27558c51bf55872947c7de6
+
 refinedet320_*
 refinedet*
 nohuo.*

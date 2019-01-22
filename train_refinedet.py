@@ -9,18 +9,15 @@ import torch.utils.data as data
 from libs.utils.augmentations import SSDAugmentation
 from libs.networks.vgg_refinedet import VGGRefineDet
 from libs.networks.resnet_refinedet import ResNetRefineDet
-
 from libs.dataset.config import voc320, voc512, coco320, coco512, MEANS
-from libs.dataset.coco import COCO_ROOT, COCODetection, COCO_CLASSES
-from libs.dataset.voc0712 import VOC_ROOT, VOCDetection, \
-    VOCAnnotationTransform
-from libs.dataset import *
 from libs.dataset.transform import detection_collate
+from libs.dataset.roidb import combined_roidb
+from libs.dataset.blob_dataset import BlobDataset
 
 import pdb
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-# os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
+# os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
 
 
 def str2bool(v):
@@ -28,12 +25,11 @@ def str2bool(v):
 
 
 parser = argparse.ArgumentParser(
-    description='Single Shot MultiBox Detector Training With Pytorch')
+    description='RefineDet Training With Pytorch')
 train_set = parser.add_mutually_exclusive_group()
-parser.add_argument('--dataset', default='VOC', choices=['VOC', 'COCO'],
-                    type=str, help='VOC or COCO')
-parser.add_argument('--dataset_root', default='/root/dataset/voc/VOCdevkit/',
-                    help='Dataset root directory path')
+parser.add_argument('--dataset', default='pascal_voc_0712',
+                    choices=['pascal_voc', 'pascal_voc_0712', 'coco'],
+                    type=str, help='pascal_voc, pascal_voc_0712 or coco')
 parser.add_argument('--network', default='vgg16',
                     help='Pretrained base model')
 parser.add_argument('--basenet', default='vgg16_reducedfc.pth',
@@ -46,7 +42,7 @@ parser.add_argument('--resume', default=None, type=str,
                     help='Checkpoint state_dict file to resume training from')
 parser.add_argument('--start_iter', default=0, type=int,
                     help='Resume training at this iter')
-parser.add_argument('--num_workers', default=0, type=int,
+parser.add_argument('--num_workers', default=8, type=int,
                     help='Number of workers used in dataloading')
 parser.add_argument('--cuda', default=True, type=str2bool,
                     help='Use CUDA to train model')
@@ -83,70 +79,75 @@ else:
 if not os.path.exists(args.save_folder):
     os.mkdir(args.save_folder)
 
-
 viz = None
 if args.visdom:
     import visdom
     viz = visdom.Visdom()
     
 def train():
-    if args.dataset == 'COCO':
-        args.dataset_root = COCO_ROOT
+    # Assign imdb_name and imdbval_name according to args.dataset.
+    if args.dataset == "pascal_voc":
+        args.imdb_name = "voc_2007_trainval"
+        args.imdbval_name = "voc_2007_test"
+    elif args.dataset == "pascal_voc_0712":
+        args.imdb_name = "voc_2007_trainval+voc_2012_trainval"
+        args.imdbval_name = "voc_2007_test"
+    elif args.dataset == "coco":
+        args.imdb_name = "coco_2014_train+coco_2014_valminusminival"
+        args.imdbval_name = "coco_2014_minival"
+    # Import config
+    if args.dataset == 'coco':
         cfg = (coco320, coco512)[args.input_size==512]
-        dataset = COCODetection(root=args.dataset_root,
-                                transform=SSDAugmentation(cfg['min_dim'],
-                                                          MEANS))
-    elif args.dataset == 'VOC':
-        args.dataset_root = VOC_ROOT
+    elif args.dataset in ['pascal_voc', 'pascal_voc_0712']:
         cfg = (voc320, voc512)[args.input_size==512]
-        dataset = VOCDetection(root=args.dataset_root,
-                               # image_sets=[('2007', 'trainval')],
-                               image_sets=[('2007', 'trainval'),
-                                           ('2012', 'trainval')],
-                               transform=SSDAugmentation(cfg['min_dim'],
-                                                         MEANS))
-    str_input_size = str(cfg['min_dim'])
-    # pdb.set_trace()
-    # pdb.set_trace()
+    # Create imdb, roidb and blob_dataset
+    print('Create or load an imdb.')
+    imdb, roidb = combined_roidb(args.imdb_name)
+    blob_dataset = BlobDataset(
+        imdb, roidb, transform=SSDAugmentation(cfg['min_dim'], MEANS),
+        target_normalization=True)
+
+    # Construct networks.
+    print('Construct {}_refinedet network.'.format(args.network))
     if args.network == 'vgg16':
         refinedet = VGGRefineDet(cfg['num_classes'], cfg)
     elif args.network == 'resnet101':
         refinedet = ResNetRefineDet(cfg['num_classes'], cfg)
-
     refinedet.create_architecture(
         os.path.join(args.save_folder, args.basenet), pretrained=True,
         fine_tuning=True)
+    # For CPU
     net = refinedet
+    # For GPU/GPUs
     if args.cuda:
         if num_gpus > 1:
             net = torch.nn.DataParallel(refinedet)
         else:
             net = refinedet.cuda()
         cudnn.benchmark = True
-      
+    # Resume
     if args.resume:
         print('Resuming training, loading {}...'.format(args.resume))
         refinedet.load_weights(args.resume)
 
     # pdb.set_trace()
-    params = net.state_dict()
+    # params = net.state_dict()
     # for k, v in params.items():
     #     print(k)
     #     print(v.shape)
     optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()),
                           lr=args.lr, momentum=args.momentum,
                           weight_decay=args.weight_decay)
-#     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=args.momentum,
-#                           weight_decay=args.weight_decay)
     net.train()
-    print('Training RefineDet on:', dataset.name)
+    print('Training RefineDet on:', args.imdb_name)
     print('Using the specified args:')
     print(args)
 
     step_index = 0
-
+    str_input_size = str(cfg['min_dim'])
+    
     if args.visdom:
-        vis_title = 'RefinDet.PyTorch on ' + dataset.name
+        vis_title = 'RefinDet.PyTorch on ' + args.imdb_name
         vis_legend = ['Binary Loc Loss', 'Binary Conf Loss',
                       'Binary Total Loss',
                       'Multiclass Loc Loss', 'Multiclass Conf Loss',
@@ -156,28 +157,29 @@ def train():
         iter_plot = create_vis_plot('Iteration', 'Loss', vis_title, vis_legend)
         epoch_plot = create_vis_plot('Epoch', 'Loss', vis_title, vis_legend)
 
-    data_loader = data.DataLoader(dataset, args.batch_size,
+    data_loader = data.DataLoader(blob_dataset, args.batch_size,
                                   num_workers=args.num_workers,
                                   shuffle=True, collate_fn=detection_collate,
                                   pin_memory=True)
-    # create batch iterator
-    # batch_iterator = iter(data_loader)
-    # for iteration in range(args.start_iter, cfg['max_iter']):
-    # number of iterations in each epoch
-    iter_datasets = len(dataset) // args.batch_size
-    epoch_size = iter_datasets
+    # Create batch iterator
+    # Number of iterations in each epoch
+    num_iter_per_epoch = len(blob_dataset) // args.batch_size
     # number of epoch
-    epoch_num = cfg['max_iter'] // iter_datasets
+    num_epoch = cfg['max_iter'] // num_iter_per_epoch
     iteration = 0
+    bi_loc_loss = 0
+    bi_conf_loss = 0
+    multi_loc_loss = 0
+    multi_conf_loss = 0
     total_bi_loc_loss = 0
     total_bi_conf_loss = 0
     total_multi_loc_loss = 0
     total_multi_conf_loss = 0
-    for epoch in range(0, epoch_num):
+    for epoch in range(0, num_epoch):
         if args.visdom and epoch != 0:
             update_vis_plot(epoch, bi_loc_loss, bi_conf_loss,
                             multi_loc_loss, multi_conf_loss, epoch_plot, None,
-                            'append', epoch_size)
+                            'append', num_iter_per_epoch)
             # reset epoch loss counters
             bi_loc_loss = 0
             bi_conf_loss = 0
@@ -280,14 +282,14 @@ def create_vis_plot(_xlabel, _ylabel, _title, _legend):
 
 
 def update_vis_plot(iteration, bi_loc, bi_conf, multi_loc, multi_conf,
-                    window1, window2, update_type, epoch_size=1):
+                    window1, window2, update_type, num_iter_per_epoch=1):
     num_loss_type = 6
     viz.line(
         X=torch.ones((1, num_loss_type)).cpu() * iteration,
         Y=torch.Tensor([bi_loc, bi_conf, bi_loc + bi_conf,
                         multi_loc, multi_conf, multi_loc + multi_conf,
                         bi_loc + bi_conf + multi_loc + multi_conf]
-                       ).unsqueeze(0).cpu() / epoch_size,
+                       ).unsqueeze(0).cpu() / num_iter_per_epoch,
         win=window1,
         update=update_type
     )
