@@ -1,6 +1,7 @@
 import os
 import time
 import argparse
+import torch
 from torch.autograd import Variable
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
@@ -14,10 +15,11 @@ from libs.dataset.coco import COCO_ROOT, COCODetection, COCO_CLASSES
 from libs.dataset.voc0712 import VOC_ROOT, VOCDetection, \
     VOCAnnotationTransform
 from libs.dataset import *
+from libs.dataset.transform import detection_collate
 
 import pdb
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 # os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
 
 

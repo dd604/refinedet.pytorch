@@ -40,7 +40,7 @@ def get_label_map(label_file):
     for line in labels:
         ids = line.split(',')
         label_map[int(ids[0])] = int(ids[1])
-    pdb.set_trace()
+
     return label_map
 
 
