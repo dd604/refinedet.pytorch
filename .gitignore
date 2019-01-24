@@ -1,6 +1,7 @@
 # data
 data/
 #voc_detections
+detection_output/
 voc_detections/
 unit_test/images.pkl
 unit_test/targets.pkl

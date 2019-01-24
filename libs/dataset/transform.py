@@ -43,6 +43,9 @@ def base_transform(image, size, mean):
 
 
 class BaseTransform:
+    """
+    For evaluation and testing.
+    """
     def __init__(self, size, mean):
         self.size = size
         self.mean = np.array(mean, dtype=np.float32)

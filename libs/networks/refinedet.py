@@ -51,7 +51,8 @@ class RefineDet(nn.Module):
         self.arm_predictions = None
         self.odm_predictions = None
 
-    def _init_modules(self, model_path=None, pretrained=True, fine_tuning=True):
+    def _init_modules(self, base_model_path=None, pretrained=True,
+                      fine_tuning=True):
         """
         One should overwrite this function and call _init_part_modules()
         """
@@ -91,17 +92,37 @@ class RefineDet(nn.Module):
         self.odm_loc.apply(weights_init)
         self.odm_conf.apply(weights_init)
         
-    def create_architecture(self, model_path=None, pretrained=True,
+    def create_architecture(self, base_model_path=None, pretrained=True,
                             fine_tuning=True):
-        self._init_modules(model_path, pretrained, fine_tuning)
+        """
+        Firstly, create modules and load pretrained weights for base model if necessary.
+        Then initialize weights for heads of detection.
+        :param base_model_path: model path for a base network.
+        :param pretrained: whether load a pretrained model or not.
+        :param fine_tuning: whether fix parameters for a base model.
+        :return:
+        """
+        self._init_modules(base_model_path, pretrained, fine_tuning)
         self._init_weights()
     
-    def forward(self, x, targets=None):
-        """Applies network layers and ops on input image(s) x.
-        Args:
-          x: input image or batch of images. Shape: [batch,3,320,320].
-          targets:
+    def load_weights(self, model_path):
         """
+        Load trained model
+        :param model_path: model path.
+        :return:
+        """
+        self.load_state_dict(torch.load(model_path))
+        
+    def forward(self, x, targets=None):
+        """
+        Apply network on input.
+        :param x: input variable (batch_size, height, width, channel)
+        :param targets: targets must be assigned a none variable if training,
+        other wise for testing.
+        :return: four losses (refer to function self.calculate_loss) for training.
+        detection results (refer to function handle self.detect_layer) for testing.
+        """
+
         # forward features
         forward_features = self._get_forward_features(x)
         # print([k.shape for k in forward_features])
@@ -128,11 +149,14 @@ class RefineDet(nn.Module):
         
     
     def calculate_loss(self, targets):
-        # arm_loss_loc, arm_loss_conf = self.arm_loss_layer(
-        #     self.arm_predictions, self.priors, targets)
-        # odm_loss_loc, odm_loss_conf = self.odm_loss_layer(
-        #     self.arm_predictions, self.odm_predictions, self.priors, targets)
-        
+        """
+        Calculate four losses for ARM and ODM when training.
+        :param targets: ground truth, shape is (batch_size, num_gt, 5)
+        :return arm_loss_loc: location loss for ARM
+        :return arm_loss_conf: binary confidence loss for ARM
+        :return odm_loss_loc: location loss for ODM
+        :return odm_loss_conf: multiple confidence loss for ARM
+        """
         arm_loss_loc, arm_loss_conf = self.arm_loss_layer(
             self.arm_predictions, self.priors, targets)
         odm_loss_loc, odm_loss_conf = self.odm_loss_layer(
@@ -142,28 +166,30 @@ class RefineDet(nn.Module):
     
     def _get_forward_features(self, x):
         """
-        One should rewrite this function and calculate forward features by layer1-4
+        One should re-write this function and calculate forward features of layer1-4
         """
-        raise NotImplementedError('You should rewrite the "calculate_forward_features" function')
+        raise NotImplementedError('You should re-write the '
+                                  '"calculate_forward_features" function')
     
 
     def _forward_arm_head(self, forward_features):
         """
-        Apply arm_head to forward_features.
-        :param forward_features:
-        :return:
-        arm_loc_pred
+        Apply ARM heads to forward features and concatenate results of all heads
+        into one variable.
+        :param forward_features: a list, features of four layers.
+        :return arm_loc_pred: location predictions for layers,
+            shape is (batch, num_priors, 4)
+        :return arm_conf_pred: confidence predictions for layers,
+            shape is (batch, num_priors, 2)
         """
-        # arm, anchor refinement moduel
         arm_loc_pred = []
         arm_conf_pred = []
         num_classes = 2
-        # Apply arm_head to forward_features and concatenate results into
-        # a tensor of shape (batch, num_priors*4 or num_priors*num_classes)
+        # Apply ARM heads to forward_features and concatenate results
         for (x, l, c) in zip(forward_features, self.arm_loc, self.arm_conf):
             arm_loc_pred.append(l(x).permute(0, 2, 3, 1).contiguous())
             arm_conf_pred.append(c(x).permute(0, 2, 3, 1).contiguous())
-        # (batch, N*pred)
+        # (batch, num_priors*pred)
         arm_loc_pred = torch.cat([o.view(o.size(0), -1)
                                  for o in arm_loc_pred], 1)
         arm_conf_pred = torch.cat([o.view(o.size(0), -1)
@@ -174,12 +200,18 @@ class RefineDet(nn.Module):
         return arm_loc_pred, arm_conf_pred
 
     def _forward_odm_head(self, pyramid_features):
-
+        """
+        Apply ODM heads to pyramid features and concatenate results of all heads
+        into one variable.
+        :param pyramid_features: a list, features of four layers.
+        :return odm_loc_pred: location predictions for layers,
+            shape is (batch, num_priors, 4)
+        :return odm_conf_pred: confidence predictions for layers,
+            shape is (batch, num_priors, num_classes)
+        """
         odm_loc_pred = []
         odm_conf_pred = []
-        # pdb.set_trace()
-        # Apply odm_head to pyramid_features and concatenate results into
-        # a tensor of shape (batch, num_priors*4 or num_priors*num_classes)
+        # Apply ODM heads to pyramid features and concatenate results.
         for (x, l, c) in zip(pyramid_features, self.odm_loc, self.odm_conf):
             odm_loc_pred.append(l(x).permute(0, 2, 3, 1).contiguous())
             odm_conf_pred.append(c(x).permute(0, 2, 3, 1).contiguous())
@@ -187,9 +219,9 @@ class RefineDet(nn.Module):
                                     for o in odm_loc_pred], 1)
         odm_conf_pred = torch.cat([o.view(o.size(0), -1)
                                      for o in odm_conf_pred], 1)
-        # Shape of loc_pred (batch, num_priors, 4)
+        # Shape is (batch, num_priors, 4)
         odm_loc_pred = odm_loc_pred.view(odm_loc_pred.size(0), -1, 4)
-        # Shape of conf_pred (batch, num_priors, num_classes)
+        # Shape is (batch, num_priors, num_classes)
         odm_conf_pred = odm_conf_pred.view(odm_conf_pred.size(0), -1,
                                                self.num_classes)
         

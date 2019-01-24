@@ -253,6 +253,7 @@ def nms(boxes, scores, overlap=0.5, top_k=200):
 
 def refine_priors(loc_pred, priors, variance):
     """
+    Refine location of priors with location predicts.
     :param loc_pred: (batch_size, num_priors, 4),
         (norm_cx, norm_cy, norm_w, norm_h)
     :param priors: (num_priors, 4), (cx, cy, w, h)

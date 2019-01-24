@@ -13,28 +13,36 @@ import pdb
 
 class VGGRefineDet(_RefineDet):
     """
+    RefineDet with VGG16 as the base network.
     """
     def __init__(self, num_classes, cfg):
         super(VGGRefineDet, self).__init__(num_classes, cfg)
         
-    def _init_modules(self, model_path=None, pretrained=True,
+    def _init_modules(self, base_model_path=None, pretrained=True,
             fine_tuning=True):
-        
+        """
+        Initialize modules, load weights and fix parameters for a base model
+        if necessary.
+        :param base_model_path: model path for a base network.
+        :param pretrained: whether load a pretrained model or not.
+        :param fine_tuning: whether fix parameters for a base model.
+        :return:
+        """
         self.base = nn.ModuleList(make_vgg_layers())
         # pdb.set_trace()
         self.pretrained = pretrained
-        self.model_path = model_path
+        self.base_model_path = base_model_path
         # self.fine_tuning = self.fine_tuning
-        if self.pretrained == True and model_path is not None:
-            print("Loading pretrained weights from %s" % self.model_path)
-            state_dict = torch.load(self.model_path)
+        if (base_model_path is not None) and (self.pretrained == True):
+            print("Loading pretrained weights from %s" % self.base_model_path)
+            state_dict = torch.load(self.base_model_path)
             self.base.load_state_dict({k: v for k, v in state_dict.items()
                                        if k in self.base.state_dict()})
             # fix weights
             if not fine_tuning:
                 for param in self.base.parameters():
                     param.requires_grad = False
-
+            
         self.layers_out_channels = layers_out_channels
         self.extra = nn.ModuleList(add_extra_layers())
         # construct base network
@@ -58,9 +66,10 @@ class VGGRefineDet(_RefineDet):
         
     def _get_forward_features(self, x):
         """
-        Calculate forward_features = [c1, c2, c3, c4]
-        :param x:
-        :return:
+        Calculate forward features
+        :param x: input variable, the size is (batch_size, height, width,
+        channel)
+        :return forward_features:  a list [c1, c2, c3, c4]
         """
         forward_features = []
         # c1

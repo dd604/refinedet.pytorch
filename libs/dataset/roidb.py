@@ -3,9 +3,11 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
 import libs.dataset.datasets as datasets
 import numpy as np
 from libs.dataset.datasets.factory import get_imdb
+from libs.dataset.datasets.imdb import ROOT_DIR
 # import libs.dataset.datasets.imdb as imdb
 from PIL import Image
 import cv2
@@ -99,3 +101,20 @@ def combined_roidb(imdb_names, training=True):
         roidb = filter_roidb(roidb)
     
     return imdb, roidb
+
+
+def get_output_dir(imdb, weights_filename):
+    """Return the directory where experimental artifacts are placed.
+    If the directory does not exist, it is created.
+  
+    A canonical path is built using the name from an imdb and a network
+    (if not None).
+    """
+    outdir = os.path.join(ROOT_DIR, 'detection_output',
+                          imdb.name)
+    if weights_filename is None:
+        weights_filename = 'default'
+    outdir = os.path.join(outdir, weights_filename)
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+    return outdir

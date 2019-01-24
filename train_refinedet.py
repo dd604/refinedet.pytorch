@@ -26,7 +26,6 @@ def str2bool(v):
 
 parser = argparse.ArgumentParser(
     description='RefineDet Training With Pytorch')
-train_set = parser.add_mutually_exclusive_group()
 parser.add_argument('--dataset', default='pascal_voc_0712',
                     choices=['pascal_voc', 'pascal_voc_0712', 'coco'],
                     type=str, help='pascal_voc, pascal_voc_0712 or coco')
@@ -38,7 +37,7 @@ parser.add_argument('--input_size', default=320, type=int,
                     help='Input size for training')
 parser.add_argument('--batch_size', default=32, type=int,
                     help='Batch size for training')
-parser.add_argument('--resume', default=None, type=str,
+parser.add_argument('--resume_checkpoint', default=None, type=str,
                     help='Checkpoint state_dict file to resume training from')
 parser.add_argument('--start_iter', default=0, type=int,
                     help='Resume training at this iter')
@@ -126,9 +125,9 @@ def train():
             net = refinedet.cuda()
         cudnn.benchmark = True
     # Resume
-    if args.resume:
-        print('Resuming training, loading {}...'.format(args.resume))
-        refinedet.load_weights(args.resume)
+    if args.resume_checkpoint:
+        print('Resuming training, loading {}...'.format(args.resume_checkpoint))
+        net.load_weights(args.resume_checkpoint)
 
     # pdb.set_trace()
     # params = net.state_dict()
@@ -195,19 +194,13 @@ def train():
             if args.cuda:
                 images = Variable(images.cuda())
                 targets = Variable(targets.cuda())
-                # targets = [Variable(ann.cuda()) for ann in targets]
             else:
                 images = Variable(images)
                 targets = Variable(targets)
             # forward
             t0 = time.time()
-            # pdb.set_trace()
             # backprop
             optimizer.zero_grad()
-#             net.zero_grad()
-#             arm_predictions, odm_predictions = net(images)
-#             bi_loss_loc, bi_loss_conf, multi_loss_loc, multi_loss_conf = \
-#                 net.calculate_loss(arm_predictions, odm_predictions, targets)
             bi_loss_loc, bi_loss_conf, multi_loss_loc, multi_loss_conf = \
                 net(images, targets)
             loss = bi_loss_loc.mean() + bi_loss_conf.mean() + \
