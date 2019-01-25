@@ -73,7 +73,7 @@ args = parser.parse_args()
 args.input_size = 320
 args.dataset = 'coco'
 args.network = 'vgg16'
-postfix_iter = 330000
+postfix_iter = 400000
 save_name = '{}_{}x{}'.format(args.network, str(args.input_size),
                               str(args.input_size))
 args.model_path = './weights/{}/refinedet{}_{}_{}.pth'.format(

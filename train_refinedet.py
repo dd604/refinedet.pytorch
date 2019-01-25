@@ -26,9 +26,9 @@ def str2bool(v):
 
 parser = argparse.ArgumentParser(
     description='RefineDet Training With Pytorch')
-parser.add_argument('--dataset', default='pascal_voc_0712',
-                    choices=['pascal_voc', 'pascal_voc_0712', 'coco'],
-                    type=str, help='pascal_voc, pascal_voc_0712 or coco')
+parser.add_argument('--dataset', default='voc',
+                    choices=['voc', 'coco'],
+                    type=str, help='voc or coco')
 parser.add_argument('--network', default='vgg16',
                     help='Pretrained base model')
 parser.add_argument('--basenet', default='vgg16_reducedfc.pth',
@@ -85,10 +85,7 @@ if args.visdom:
     
 def train():
     # Assign imdb_name and imdbval_name according to args.dataset.
-    if args.dataset == "pascal_voc":
-        args.imdb_name = "voc_2007_trainval"
-        args.imdbval_name = "voc_2007_test"
-    elif args.dataset == "pascal_voc_0712":
+    if args.dataset == "voc":
         args.imdb_name = "voc_2007_trainval+voc_2012_trainval"
         args.imdbval_name = "voc_2007_test"
     elif args.dataset == "coco":
@@ -97,7 +94,7 @@ def train():
     # Import config
     if args.dataset == 'coco':
         cfg = (coco320, coco512)[args.input_size==512]
-    elif args.dataset in ['pascal_voc', 'pascal_voc_0712']:
+    elif args.dataset == 'voc':
         cfg = (voc320, voc512)[args.input_size==512]
     # Create imdb, roidb and blob_dataset
     print('Create or load an imdb.')
@@ -144,7 +141,11 @@ def train():
 
     step_index = 0
     str_input_size = str(cfg['min_dim'])
-    
+    model_info = 'refinedet{0}_'.format(str_input_size) + args.dataset
+    model_save_folder = os.path.join(args.save_folder, model_info)
+    if not os.path.exists(model_save_folder):
+        os.mkdir(model_save_folder)
+        
     if args.visdom:
         vis_title = 'RefinDet.PyTorch on ' + args.imdb_name
         vis_legend = ['Binary Loc Loss', 'Binary Conf Loss',
@@ -235,10 +236,9 @@ def train():
             if iteration != 0 and iteration % cfg['checkpoint_step'] == 0:
                 print('Saving state, iter:', iteration)
                 torch.save(refinedet.state_dict(),
-                           os.path.join(args.save_folder,
-                           'refinedet{0}_'.format(str_input_size) +
-                           args.dataset + '_' +
-                           repr(iteration) + '.pth'))
+                           os.path.join(model_save_folder,
+                                        model_info + '_' +
+                                        repr(iteration) + '.pth'))
 
             iteration += 1
         

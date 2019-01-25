@@ -20,7 +20,7 @@ class ResNetRefineDet(_RefineDet):
         super(ResNetRefineDet, self).__init__(num_classes, cfg)
     
     def _init_modules(self, base_model_path=None, pretrained=True,
-                      fine_tuning=False):
+                      fine_tuning=True):
         """
         Initialize modules, load weights and fix parameters for a base model
         if necessary.
