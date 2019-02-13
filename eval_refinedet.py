@@ -22,7 +22,7 @@ from libs.dataset.blob_dataset import BlobDataset
 
 import pdb
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '3'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 # os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
 
 class Timer(object):
@@ -70,14 +70,17 @@ parser.add_argument('--cuda', default=True, type=str2bool,
                     help='Use CUDA to train model')
 args = parser.parse_args()
 
-args.input_size = 320
-args.dataset = 'coco'
+args.input_size = 512
+#args.input_size = 320
+args.dataset = 'voc'
+#args.dataset = 'coco'
 args.network = 'vgg16'
-postfix_iter = 400000
+postfix_iter = 120000
 save_name = '{}_{}x{}'.format(args.network, str(args.input_size),
                               str(args.input_size))
-args.model_path = './weights/{}/refinedet{}_{}_{}.pth'.format(
-    args.network, str(args.input_size), args.dataset,
+subdir = 'refinedet{}_{}'.format(args.input_size, args.dataset) 
+args.model_path = './weights/{}/{}/{}_{}.pth'.format(
+    args.network, subdir, subdir,
     str(postfix_iter)
 )
 
@@ -101,10 +104,7 @@ else:
 
 def eval_net():
     # Assign imdb_name and imdbval_name according to args.dataset.
-    if args.dataset == "pascal_voc":
-        args.imdb_name = "voc_2007_trainval"
-        args.imdbval_name = "voc_2007_test"
-    elif args.dataset == "pascal_voc_0712":
+    if args.dataset == "voc":
         args.imdb_name = "voc_2007_trainval+voc_2012_trainval"
         args.imdbval_name = "voc_2007_test"
     elif args.dataset == "coco":
@@ -113,7 +113,7 @@ def eval_net():
     # Import config
     if args.dataset == 'coco':
         cfg = (coco320, coco512)[args.input_size==512]
-    elif args.dataset in ['pascal_voc', 'pascal_voc_0712']:
+    elif args.dataset == 'voc': 
         cfg = (voc320, voc512)[args.input_size==512]
     # Create imdb, roidb and blob_dataset
     print('Create or load an evaluted imdb.')
@@ -149,12 +149,12 @@ def eval_net():
     print('Using the specified args:')
     print(args)
 
-    data_loader = data.DataLoader(blob_dataset,
-                                  batch_size=1,
-                                  num_workers=0,
-                                  shuffle=False,
-                                  collate_fn=detection_collate,
-                                  pin_memory=True)
+    #data_loader = data.DataLoader(blob_dataset,
+    #                              batch_size=1,
+    #                              num_workers=0,
+    #                              shuffle=False,
+    #                              collate_fn=detection_collate,
+    #                              pin_memory=True)
     # all detections are collected into:
     #    all_boxes[cls][image] = N x 5 array of detections in
     #    (x1, y1, x2, y2, score)
@@ -181,9 +181,11 @@ def eval_net():
             
         # timers forward
         _t['im_detect'].tic()
+        #start = time.time()
         # pdb.set_trace()
         detection = net(input)
         detect_time = _t['im_detect'].toc(average=True)
+        #detect_time = time.time() - start
         print('im_detect: {:d}/{:d} {:.3f}s\n'.format(
             idx + 1, num_images, detect_time))
         # skip jc = 0, because it's the background class
