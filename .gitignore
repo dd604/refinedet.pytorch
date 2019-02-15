@@ -1,3 +1,4 @@
+
 # data
 data/
 #voc_detections
@@ -31,3 +32,4 @@ doc/
 nohup.*
 *.out
 
+debug_vgg16_coco320*

@@ -1,8 +1,31 @@
-# SSD: Single Shot MultiBox Object Detector, in PyTorch
-A [PyTorch](http://pytorch.org/) implementation of [Single Shot MultiBox Detector](http://arxiv.org/abs/1512.02325) from the 2016 paper by Wei Liu, Dragomir Anguelov, Dumitru Erhan, Christian Szegedy, Scott Reed, Cheng-Yang, and Alexander C. Berg.  The official and original Caffe code can be found [here](https://github.com/weiliu89/caffe/tree/ssd).
+# RefineDet in PyTorch
+This is a PyTorch implementation of [Single-Shot Refinement Neural Network for Object Detection](https://arxiv.org/abs/1711.06897) which is a 2018CVPR paper written by Shifeng Zhang, Longyin Wen, Xiao Bian, Zhen Lei and Stan Z. Li. The official and original Caffe code can be found [here](https://github.com/sfzhang15/RefineDet).
+
+This implementation mainly refers the official RefineDet in Caffe [sfzhang15/RefineDet](https://github.com/sfzhang15/RefineDet) and a PyTorch implementation of SSD [amdegroot/ssd.pytorch](https://github.com/amdegroot/ssd.pytorch). Its sublibrary(*pytorch_refinedet/libs/dataset/datasets*) to process datasets is obtained from [jwyang/faster-rcnn.pytorch](https://github.com/jwyang/faster-rcnn.pytorch) with minor modification.
+
+## Performance
+
+## Repuisites
+* Python 2.7
+* PyTorch 0.3.1
+* CUDA 8.0 or higher
+## Data Preparation
+* **PASCAL_VOC 07+12**: You can follow the instructions in [py-faster-rcnn](https://github.com/rbgirshick/py-faster-rcnn#beyond-the-demo-installation-for-training-and-testing-models) or [jwyang/faster-rcnn.pytorch](https://github.com/jwyang/faster-rcnn.pytorch) to prepare VOC datasets, i.e., creating softlinks or putting the data in the folder data/
+* **COCO**: You can use COCO2014 to train your model by the same setting as PASCAL_VOC07+12.
 
 
-<img align="right" src= "https://github.com/amdegroot/ssd.pytorch/blob/master/doc/ssd.png" height = 400/>
+
+
+
+
+
+
+
+
+
+
+
+ 
 
 ### Table of Contents
 - <a href='#installation'>Installation</a>

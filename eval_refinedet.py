@@ -55,34 +55,35 @@ def str2bool(v):
 
 parser = argparse.ArgumentParser(
     description='RefineDet Test With Pytorch')
-parser.add_argument('--dataset', default='pascal_voc_0712',
-                    choices=['pascal_voc', 'pascal_voc_0712', 'coco'],
-                    type=str, help='pascal_voc, pascal_voc_0712 or coco')
+parser.add_argument('--dataset', default='voc', choices=['voc', 'coco'],
+                    type=str, help='voc or coco')
 parser.add_argument('--network', default='vgg16',
-                    help='Pretrained base model')
+                    help='Base network')
 parser.add_argument('--input_size', default=320, type=int,
-                    help='Input size for training')
+                    help='Input size for evaluation')
 parser.add_argument('--batch_size', default=1, type=int,
-                    help='Batch size for training')
+                    help='Batch size for evaluation')
 parser.add_argument('--model_path', default=None, type=str,
                     help='Checkpoint state_dict file to test from')
+parser.add_argument('--result_path', default='./detection_output', type=str,
+                    help='Path to store detection results in evaluation')
 parser.add_argument('--cuda', default=True, type=str2bool,
-                    help='Use CUDA to train model')
+                    help='Use CUDA to evaluate model')
 args = parser.parse_args()
 
-args.input_size = 512
+#args.input_size = 512
 #args.input_size = 320
-args.dataset = 'voc'
+#args.dataset = 'voc'
 #args.dataset = 'coco'
-args.network = 'vgg16'
-postfix_iter = 120000
-save_name = '{}_{}x{}'.format(args.network, str(args.input_size),
-                              str(args.input_size))
-subdir = 'refinedet{}_{}'.format(args.input_size, args.dataset) 
-args.model_path = './weights/{}/{}/{}_{}.pth'.format(
-    args.network, subdir, subdir,
-    str(postfix_iter)
-)
+#args.network = 'vgg16'
+#postfix_iter = 120000
+#result_path = '{}_{}x{}'.format(args.network, str(args.input_size),
+#                              str(args.input_size))
+#subdir = 'refinedet{}_{}'.format(args.input_size, args.dataset) 
+#args.model_path = './weights/{}/{}/{}_{}.pth'.format(
+#    args.network, subdir, subdir,
+#    str(postfix_iter)
+#)
 
 
 num_gpus = 1
@@ -96,7 +97,7 @@ if torch.cuda.is_available():
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
     if not args.cuda:
         print('WARNING: It looks like you have a CUDA device, but are not' +
-              'using CUDA.\nRun with --cuda for optimal training speed.')
+              'using CUDA.\nRun with --cuda for optimal evaluating speed.')
         torch.set_default_tensor_type('torch.FloatTensor')
 else:
     torch.set_default_tensor_type('torch.FloatTensor')
@@ -167,7 +168,7 @@ def eval_net():
                  for _ in range(num_classes)]
     empty_array = np.transpose(np.array([[], [], [], [], []]), (1, 0))
     
-    output_dir = get_output_dir(imdb, save_name)
+    output_dir = get_output_dir(imdb, args.result_path)
     _t = {'im_detect': Timer(), 'misc': Timer()}
     det_file = os.path.join(output_dir, 'detections.pkl')
     
