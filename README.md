@@ -44,21 +44,25 @@ Change dataset to "coco", if you want to use COCO2014.
 
 ## Evaluation
 To evaluate a trained model, run as:
+```Shell
 python eval_refinedet.py --input_size 512 --dataset voc --network vgg16 --model_path your/weights/path
-
+```
+`
 ## Performance
 The project trys to reproduce the performance of RefineDet in Caffe, but there are some gaps.
 If you have any suggetion to promote this reproduction, please leave a message in the issues.
-1). PASCAL VOC07+12 (Train/Test: VOC07+12/VOC07)
-Method |Backbone | Input Size | mAP 
-------|-----|-------|-----|
-SSD      | VGG16| 300 x 300 | 77.2 
-SSD      | VGG16| 512 x 512 | 79.8 
-RefineDet(Official)| VGG16| 320 x 320 | 80.0
-RefineDet(Official)| VGG16| 512 x 512 | 81.8
-**RefineDet(Our)**| VGG16| 320 x 320 | 78.9
-**RefineDet(Our)**| VGG16| 512 x 512 | 79.8
 
+1). PASCAL VOC07+12 (Train/Test: VOC07+12/VOC07)
+
+|Method |Backbone | Input Size | mAP | FPS |
+|-------|---------|------------|-----|-----|
+|SSD      | VGG16| 300 x 300 | 77.2 | 46 |
+|SSD      | VGG16| 512 x 512 | 79.8 | 19 |
+|RefineDet(Official)| VGG16| 320 x 320 | 80.0 | 40.3 |
+|RefineDet(Official)| VGG16| 512 x 512 | 81.8 | 24.1 |
+|**RefineDet(Our)**| VGG16| 320 x 320 | 78.9 | ~45 |
+|**RefineDet(Our)**| VGG16| 512 x 512 | 79.8 | ~30 |
+The speed is evaluted on P40.
 
 ## Demo
 You can run demo/demo.ipynb with jupyter notebook to visualize detetion results.
