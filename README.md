@@ -19,7 +19,7 @@ The directory trees in data/ in my projects are as following:
 ├── VOCdevkit2007
 │   └── VOC2007 -> /root/dataset/voc/VOCdevkit/VOC2007
 └── VOCdevkit2012
-     └── VOC2012 -> /root/dataset/voc/VOCdevkit/VOC2012
+    └── VOC2012 -> /root/dataset/voc/VOCdevkit/VOC2012
 ```
 
 ## Train
