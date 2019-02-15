@@ -47,7 +47,7 @@ To evaluate a trained model, run as:
 ```Shell
 python eval_refinedet.py --input_size 512 --dataset voc --network vgg16 --model_path your/weights/path
 ```
-`
+
 ## Performance
 The project trys to reproduce the performance of RefineDet in Caffe, but there are some gaps.
 If you have any suggetion to promote this reproduction, please leave a message in the issues.
@@ -62,6 +62,7 @@ If you have any suggetion to promote this reproduction, please leave a message i
 |RefineDet(Official)| VGG16| 512 x 512 | 81.8 | 24.1 |
 |**RefineDet(Our)**| VGG16| 320 x 320 | 78.9 | ~45 |
 |**RefineDet(Our)**| VGG16| 512 x 512 | 79.8 | ~30 |
+
 The speed is evaluted on P40.
 
 ## Demo
