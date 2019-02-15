@@ -14,11 +14,13 @@ This implementation mainly refers the official RefineDet in Caffe [sfzhang15/Ref
 * **COCO**: You can use COCO2014 to train your model by the same setting as PASCAL_VOC07+12.
 
 The directory trees in data/ in my projects are as following:
+```Shell
 ├── coco -> /root/dataset/coco
 ├── VOCdevkit2007
 │   └── VOC2007 -> /root/dataset/voc/VOCdevkit/VOC2007
 └── VOCdevkit2012
      └── VOC2012 -> /root/dataset/voc/VOCdevkit/VOC2012
+```
 
 ## Train
 You can train a RefineDet detector with [VGG16](https://arxiv.org/abs/1409.1556) or [ResNet101](https://arxiv.org/abs/1512.03385) as a base network. The pretrained models can be downloaded from [vgg16_reducedfc.pth](https://s3.amazonaws.com/amdegroot-models/vgg16_reducedfc.pth) and [resnet101.pth](https://download.pytorch.org/models/resnet101-5d3b4d8f.pth).
