@@ -64,6 +64,17 @@ If you have any suggetion to promote this reproduction, please leave a message i
 |**RefineDet(Our)**| VGG16| 512 x 512 | 79.8 | ~30 |
 
 The speed is evaluted on P40.
+The trained models that can produce the above performance can be downloaded from [vgg16_refinedet320_voc](https://www.dropbox.com/s/9rz76uvmqi7zjpp/vgg16_refinedet320_voc_120000.pth?dl=0) and [vgg16_refinedet512_voc](https://www.dropbox.com/s/nb4h29n8vuq38zt/vgg16_refinedet512_voc_120000.pth?dl=0).
+
+2). COCO2014 (Train/Test: trainval115k/minval5k)
+
+|Method |Backbone | Input Size | mAP |
+|-------|---------|------------|-----|
+|SSD      | ResNet101 | 300 x 300 | 25.1 |
+|RefineDet(Official)| ResNet101| 320 x 320 | 29.4 |
+|**RefineDet(Our)** | ResNet101| 320 x 320 | 28.2 |
+
+The trained model can be download from [resnet101_refinedet320_coco]()
 
 ## Demo
 You can run demo/demo.ipynb with jupyter notebook to visualize detetion results.
