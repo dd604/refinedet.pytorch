@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+# --------------------------------------------------------
+# RefineDet in PyTorch
+# Written by Dongdong Wang
+# Official and original Caffe implementation is at
+# https://github.com/sfzhang15/RefineDet
+# --------------------------------------------------------
+
 from __future__ import division
 from math import sqrt
 from itertools import product as product

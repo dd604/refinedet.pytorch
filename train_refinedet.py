@@ -54,8 +54,6 @@ parser.add_argument('--weight_decay', default=5e-4, type=float,
                     help='Weight decay for SGD')
 parser.add_argument('--gamma', default=0.1, type=float,
                     help='Gamma update for SGD')
-parser.add_argument('--visdom', default=False, type=str2bool,
-                    help='Use visdom for loss visualization')
 parser.add_argument('--save_folder', default='weights/vgg16',
                     help='Directory for saving checkpoint models')
 args = parser.parse_args()
@@ -79,10 +77,6 @@ else:
 if not os.path.exists(args.save_folder):
     os.mkdir(args.save_folder)
 
-viz = None
-if args.visdom:
-    import visdom
-    viz = visdom.Visdom()
     
 def train():
     # Assign imdb_name and imdbval_name according to args.dataset.
@@ -147,17 +141,6 @@ def train():
     if not os.path.exists(model_save_folder):
         os.mkdir(model_save_folder)
         
-    if args.visdom:
-        vis_title = 'RefinDet.PyTorch on ' + args.imdb_name
-        vis_legend = ['Binary Loc Loss', 'Binary Conf Loss',
-                      'Binary Total Loss',
-                      'Multiclass Loc Loss', 'Multiclass Conf Loss',
-                      'Multiclass Total Loss',
-                      'Total Loss']
-        
-        iter_plot = create_vis_plot('Iteration', 'Loss', vis_title, vis_legend)
-        epoch_plot = create_vis_plot('Epoch', 'Loss', vis_title, vis_legend)
-
     data_loader = data.DataLoader(blob_dataset, args.batch_size,
                                   num_workers=args.num_workers,
                                   shuffle=True, collate_fn=detection_collate,
@@ -168,25 +151,11 @@ def train():
     # number of epoch
     num_epoch = cfg['max_iter'] // num_iter_per_epoch
     iteration = 0
-    bi_loc_loss = 0
-    bi_conf_loss = 0
-    multi_loc_loss = 0
-    multi_conf_loss = 0
     total_bi_loc_loss = 0
     total_bi_conf_loss = 0
     total_multi_loc_loss = 0
     total_multi_conf_loss = 0
     for epoch in range(0, num_epoch):
-        if args.visdom and epoch != 0:
-            update_vis_plot(epoch, bi_loc_loss, bi_conf_loss,
-                            multi_loc_loss, multi_conf_loss, epoch_plot, None,
-                            'append', num_iter_per_epoch)
-            # reset epoch loss counters
-            bi_loc_loss = 0
-            bi_conf_loss = 0
-            multi_loc_loss = 0
-            multi_conf_loss = 0
-        
         # pdb.set_trace()
         for i_batch, (images, targets) in enumerate(data_loader):
             if iteration in cfg['lr_steps']:
@@ -228,12 +197,6 @@ def train():
                 # print('iter ' + repr(iteration) +
                 #       ' || Loss: %.4f ||' % (loss.data[0]), end=' ')
     
-            if args.visdom:
-                update_vis_plot(
-                    iteration, bi_loss_loc.data[0], bi_loss_conf.data[0],
-                    multi_loss_loc.data[0], multi_loss_conf.data[0],
-                    iter_plot, epoch_plot, 'append')
-    
             if iteration != 0 and iteration % cfg['checkpoint_step'] == 0:
                 print('Saving state, iter:', iteration)
                 torch.save(refinedet.state_dict(),
@@ -258,45 +221,6 @@ def adjust_learning_rate(optimizer, gamma, step):
     lr = args.lr * (gamma ** (step))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
-
-
-
-
-def create_vis_plot(_xlabel, _ylabel, _title, _legend):
-    return viz.line(
-        X=torch.zeros((1,)).cpu(),
-        Y=torch.zeros((1, len(_legend))).cpu(),
-        opts=dict(
-            xlabel=_xlabel,
-            ylabel=_ylabel,
-            title=_title,
-            legend=_legend
-        )
-    )
-
-
-def update_vis_plot(iteration, bi_loc, bi_conf, multi_loc, multi_conf,
-                    window1, window2, update_type, num_iter_per_epoch=1):
-    num_loss_type = 6
-    viz.line(
-        X=torch.ones((1, num_loss_type)).cpu() * iteration,
-        Y=torch.Tensor([bi_loc, bi_conf, bi_loc + bi_conf,
-                        multi_loc, multi_conf, multi_loc + multi_conf,
-                        bi_loc + bi_conf + multi_loc + multi_conf]
-                       ).unsqueeze(0).cpu() / num_iter_per_epoch,
-        win=window1,
-        update=update_type
-    )
-    # initialize epoch plot on first iteration
-    if iteration == 0:
-        viz.line(
-            X=torch.zeros((1, num_loss_type)).cpu(),
-            Y=torch.Tensor([bi_loc, bi_conf, bi_loc + bi_conf,
-                        multi_loc, multi_conf, multi_loc + multi_conf,
-                        bi_loc + bi_conf + multi_loc + multi_conf]).unsqueeze(0).cpu(),
-            win=window2,
-            update=True
-        )
 
 
 if __name__ == '__main__':

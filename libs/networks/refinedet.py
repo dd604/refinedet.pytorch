@@ -1,4 +1,11 @@
-# encoding: utf-8
+# -*- coding: utf-8 -*-
+# --------------------------------------------------------
+# RefineDet in PyTorch
+# Written by Dongdong Wang
+# Official and original Caffe implementation is at
+# https://github.com/sfzhang15/RefineDet
+# --------------------------------------------------------
+
 import os
 import torch
 import torch.nn as nn
@@ -9,7 +16,6 @@ from libs.modules.detect_layer import Detect
 from libs.modules.arm_loss import ARMLoss
 from libs.modules.odm_loss import ODMLoss
 import pdb
-# from data.config import cfg as _cfg
 
 
 class RefineDet(nn.Module):

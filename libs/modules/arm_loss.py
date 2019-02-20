@@ -1,4 +1,11 @@
 # -*- coding: utf-8 -*-
+# --------------------------------------------------------
+# RefineDet in PyTorch
+# Written by Dongdong Wang
+# Official and original Caffe implementation is at
+# https://github.com/sfzhang15/RefineDet
+# --------------------------------------------------------
+
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -55,10 +62,6 @@ class ARMLoss(nn.Module):
                 -1, cur_targets.size()[-1])
             truths = valid_targets[:, :-1]
             labels = torch.ones_like(valid_targets[:, -1])
-            # targets[idx, :, :-1].data
-            # truths = targets[idx][:, :-1].data
-            # Binary classes
-            # labels = torch.zeros_like(targets[idx][:, -1].data)
             # encode results are stored in loc_t and conf_t
             match(self.overlap_thresh, truths, priors.data, self.variance,
                   labels, loc_t, conf_t, idx)
