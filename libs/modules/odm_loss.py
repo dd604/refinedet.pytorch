@@ -3,8 +3,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as functional
-from libs.utils.box_utils import log_sum_exp, match, \
-    refine_priors
+from libs.utils.box_utils import log_sum_exp, match
 
 import pdb
 
@@ -13,46 +12,36 @@ class ODMLoss(nn.Module):
     """
     
     def __init__(self, num_classes, overlap_thresh,
-                 neg_pos_ratio, arm_variance, variance,
-                 pos_prior_threshold):
+                 neg_pos_ratio, variance):
         super(ODMLoss, self).__init__()
         self.num_classes = num_classes
         self.overlap_thresh = overlap_thresh
         self.neg_pos_ratio = neg_pos_ratio
-        self.arm_variance = arm_variance
         self.variance = variance
-        self.pos_prior_threshold = pos_prior_threshold
     
-    def forward(self, arm_predictions, odm_predictions, priors, targets):
+    def forward(self, odm_predictions, refined_anchors,
+                ignore_flags_refined_anchor, targets):
         """Multibox Loss
-        :param arm_predictions: tuple (arm_loc_pred, arm_conf_pred),
-            arm_loc_pred (batch_size, num_priors, 4),
-            arm_conf_pred (batch_size, num_priors, 2)
-        :param odm_predictions: tuple (odm_loc_pred, odm_conf_pred)
-        :param priors: (num_priors, 4)
+        :param odm_predictions: tuple (odm_loc_pred, odm_conf_pred),
+            odm_loc_pred (batch_size, num_anchors, 4),
+            odm_conf_pred (batch_size, num_anchors, num_classes)
+        :param refined_anchors: (batch_size, num_anchors, 4)
+        :param ignore_flags_refined_anchor: (batch_size, num_anchors),
+        1 means an igored negative anchor, otherwise reserved.
         :param targets: Ground truth boxes and labels for a batch,
         shape, [batch_size,num_objs,5]
         (last idx is the label, 0 for background, >0 for target).
         """
-        arm_loc = arm_predictions[0]
-        # Detach softmax of confidece predictions to block backpropation.
-        arm_score = functional.softmax(arm_predictions[1].detach(), -1)
         (loc_pred, conf_pred) = odm_predictions
-        num = loc_pred.size(0)
-        num_priors = priors.size(0)
-        
-        # Adjust priors with arm_loc.
-        # The refined_pirors is better to be considered as predicted ROIs,
-        # like Faster RCNN in a sence.
-        refined_priors = refine_priors(arm_loc.data, priors.data,
-                                       self.arm_variance)
-        loc_t = torch.Tensor(num, num_priors, 4)
-        conf_t = torch.LongTensor(num, num_priors)
-        if arm_loc.is_cuda:
+        num = refined_anchors.size(0)
+        num_anchors = refined_anchors.size(1)
+        loc_t = torch.Tensor(num, num_anchors, 4)
+        conf_t = torch.LongTensor(num, num_anchors)
+        if loc_pred.is_cuda:
             loc_t = loc_t.cuda()
             conf_t = conf_t.cuda()
         
-        # Match refined_priors (predicted ROIs) and ground truth boxes
+        # Match refined_anchors (predicted ROIs) and ground truth boxes
         # Consider each image in one batch.
         # pdb.set_trace()
         for idx in range(num):
@@ -70,9 +59,9 @@ class ODMLoss(nn.Module):
             
             # truths = targets[idx][:, :-1].data
             # labels = targets[idx][:, -1].data
-            # Refined priors of this idx
-            cur_priors = refined_priors[idx]
-            match(self.overlap_thresh, truths, cur_priors, self.variance,
+            # Refined anchors of this idx
+            cur_anchors = refined_anchors[idx]
+            match(self.overlap_thresh, truths, cur_anchors, self.variance,
                   labels, loc_t, conf_t, idx)
         
         # Wrap targets
@@ -97,7 +86,7 @@ class ODMLoss(nn.Module):
         loss_conf_proxy[pos] = 0
         # Exclude easy negatives
         ignore_neg_idx = ((conf_t <= 0) +
-                          (arm_score[:, :, 1] < self.pos_prior_threshold)
+                          ignore_flags_refined_anchor
                           ).gt(1)
         loss_conf_proxy[ignore_neg_idx] = 0
         # Sort and select max negatives

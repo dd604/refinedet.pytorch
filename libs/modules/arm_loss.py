@@ -25,15 +25,15 @@ class ARMLoss(nn.Module):
         self.variance = variance
 
 
-    def forward(self, predictions, priors, targets):
+    def forward(self, predictions, anchors, targets):
         """Binary box and classification Loss
         Args:
             predictions (tuple): A tuple containing loc preds, conf preds,
-            and priors boxes from SSD net.
-                conf shape: torch.size(batch_size, num_priors, 2)
-                loc shape: torch.size(batch_size, num_priors, 4)
-                priors shape: torch.size(num_priors,4)
-            priors: Priors
+            and anchors boxes from SSD net.
+                conf shape: torch.size(batch_size, num_anchors, 2)
+                loc shape: torch.size(batch_size, num_anchors, 4)
+                anchors shape: torch.size(num_anchors,4)
+            anchors: Priors
             targets: Ground truth boxes and labels for a batch,
                 shape: [batch_size,num_objs,5]
                 (last idx is the label, 0 for background, >0 for target).
@@ -41,11 +41,11 @@ class ARMLoss(nn.Module):
         """
         loc_pred, conf_pred = predictions
         num = loc_pred.size(0)
-        num_priors = priors.size(0)
+        num_anchors = anchors.size(0)
     
-        # result: match priors (default boxes) and ground truth boxes
-        loc_t = torch.Tensor(num, num_priors, 4)
-        conf_t = torch.LongTensor(num, num_priors)
+        # result: match anchors (default boxes) and ground truth boxes
+        loc_t = torch.Tensor(num, num_anchors, 4)
+        conf_t = torch.LongTensor(num, num_anchors)
         if loc_pred.is_cuda:
             loc_t = loc_t.cuda()
             conf_t = conf_t.cuda()
@@ -63,7 +63,7 @@ class ARMLoss(nn.Module):
             truths = valid_targets[:, :-1]
             labels = torch.ones_like(valid_targets[:, -1])
             # encode results are stored in loc_t and conf_t
-            match(self.overlap_thresh, truths, priors.data, self.variance,
+            match(self.overlap_thresh, truths, anchors.data, self.variance,
                   labels, loc_t, conf_t, idx)
     
         # wrap targets
@@ -73,7 +73,7 @@ class ARMLoss(nn.Module):
         pos = conf_t > 0
         # pdb.set_trace()
         # Localization Loss (Smooth L1)
-        # Shape: [batch, num_priors, 4]
+        # Shape: [batch, num_anchors, 4]
         pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_pred).detach()
         # Select postives to compute bounding box loss.
         loc_p = loc_pred[pos_idx].view(-1, 4)

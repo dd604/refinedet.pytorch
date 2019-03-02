@@ -4,10 +4,10 @@ import pdb
 
 
 def point_form(boxes):
-    """ Convert prior_boxes to (xmin, ymin, xmax, ymax)
+    """ Convert anchor_boxes to (xmin, ymin, xmax, ymax)
     representation for comparison to point form ground truth data.
     Args:
-        boxes: (tensor) center-size default boxes from priorbox layers.
+        boxes: (tensor) center-size default boxes from anchorbox layers.
     Return:
         boxes: (tensor) Converted xmin, ymin, xmax, ymax form of boxes.
     """
@@ -16,7 +16,7 @@ def point_form(boxes):
 
 
 def center_size(boxes):
-    """ Convert prior_boxes to (cx, cy, w, h)
+    """ Convert anchor_boxes to (cx, cy, w, h)
     representation for comparison to center-size form ground truth data.
     Args:
         boxes: (tensor) point_form boxes
@@ -56,7 +56,7 @@ def jaccard(box_a, box_b):
         A ∩ B / A ∪ B = A ∩ B / (area(A) + area(B) - A ∩ B)
     Args:
         box_a: (tensor) Ground truth bounding boxes, Shape: [num_objects,4]
-        box_b: (tensor) Prior boxes from priorbox layers, Shape: [num_priors,4]
+        box_b: (tensor) Prior boxes from anchorbox layers, Shape: [num_anchors,4]
     Return:
         jaccard overlap: (tensor) Shape: [box_a.size(0), box_b.size(0)]
     """
@@ -69,17 +69,17 @@ def jaccard(box_a, box_b):
     return inter / union  # [A,B]
 
 
-def match(threshold, truths, priors, variances, labels, loc_t, conf_t,
+def match(threshold, truths, anchors, variances, labels, loc_t, conf_t,
           idx):
-    """Match each prior box with the ground truth box of the highest jaccard
+    """Match each anchor box with the ground truth box of the highest jaccard
     overlap, encode the bounding boxes, then return the matched indices
     corresponding to both confidence and location preds.
     Args:
         threshold: (float) The overlap threshold used when mathing boxes.
-        truths: (tensor) Ground truth boxes, Shape: [num_obj, num_priors].
-        priors: (tensor) Prior boxes from priorbox layers, Shape: [n_priors,4].
-        variances: (tensor) Variances corresponding to each prior coord,
-            Shape: [num_priors, 4].
+        truths: (tensor) Ground truth boxes, Shape: [num_obj, num_anchors].
+        anchors: (tensor) Prior boxes from anchorbox layers, Shape: [n_anchors,4].
+        variances: (tensor) Variances corresponding to each anchor coord,
+            Shape: [num_anchors, 4].
         labels: (tensor) All the class labels for the image, Shape: [num_obj].
         indice is from 0.
         loc_t: (tensor) Tensor to be filled w/ endcoded location targets.
@@ -91,79 +91,79 @@ def match(threshold, truths, priors, variances, labels, loc_t, conf_t,
     # jaccard index
     overlaps = jaccard(
         truths,
-        point_form(priors)
+        point_form(anchors)
     )
     # (Bipartite Matching)
-    # [1,num_objects] best prior for each ground truth
-    best_prior_overlap, best_prior_idx = overlaps.max(1, keepdim=True)
-    # [1,num_priors] best ground truth for each prior
+    # [1,num_objects] best anchor for each ground truth
+    best_anchor_overlap, best_anchor_idx = overlaps.max(1, keepdim=True)
+    # [1,num_anchors] best ground truth for each anchor
     best_truth_overlap, best_truth_idx = overlaps.max(0, keepdim=True)
     best_truth_idx.squeeze_(0)
     best_truth_overlap.squeeze_(0)
-    best_prior_idx.squeeze_(1)
-    best_prior_overlap.squeeze_(1)
-    best_truth_overlap.index_fill_(0, best_prior_idx, 2)
-    # ensure best prior
-    # ensure every gt matches with its prior of max overlap
-    for j in range(best_prior_idx.size(0)):
-        best_truth_idx[best_prior_idx[j]] = j
+    best_anchor_idx.squeeze_(1)
+    best_anchor_overlap.squeeze_(1)
+    best_truth_overlap.index_fill_(0, best_anchor_idx, 2)
+    # ensure best anchor
+    # ensure every gt matches with its anchor of max overlap
+    for j in range(best_anchor_idx.size(0)):
+        best_truth_idx[best_anchor_idx[j]] = j
     # Select
-    matches = truths[best_truth_idx]  # Shape: [num_priors,4]
+    matches = truths[best_truth_idx]  # Shape: [num_anchors,4]
     # pdb.set_trace()
-    conf = labels[best_truth_idx] # Shape: [num_priors]
-    # conf = labels[best_truth_idx] + 1  # Shape: [num_priors]
+    conf = labels[best_truth_idx] # Shape: [num_anchors]
+    # conf = labels[best_truth_idx] + 1  # Shape: [num_anchors]
     conf[best_truth_overlap < threshold] = 0  # label as background
     # All location is stored ? but use conf > 0 to indicate which is valid.
     # It is better to modify loc to zeros, or weights to indicate
     # like faster rcnn
-    loc = encode(matches, priors, variances)
-    loc_t[idx] = loc  # [num_priors,4] encoded offsets to learn
-    conf_t[idx] = conf  # [num_priors] top class label for each prior
+    loc = encode(matches, anchors, variances)
+    loc_t[idx] = loc  # [num_anchors,4] encoded offsets to learn
+    conf_t[idx] = conf  # [num_anchors] top class label for each anchor
 
 
-def encode(matched, priors, variances):
-    """Encode the variances from the priorbox layers into the ground truth boxes
-    we have matched (based on jaccard overlap) with the prior boxes.
+def encode(matched, anchors, variances):
+    """Encode the variances from the anchorbox layers into the ground truth boxes
+    we have matched (based on jaccard overlap) with the anchor boxes.
     Args:
-        matched: (tensor) Coords of ground truth for each prior in point-form
-            Shape: [num_priors, 4].
-        priors: (tensor) Prior boxes in center-offset form
-            Shape: [num_priors,4].
-        variances: (list[float]) Variances of priorboxes
+        matched: (tensor) Coords of ground truth for each anchor in point-form
+            Shape: [num_anchors, 4].
+        anchors: (tensor) Prior boxes in center-offset form
+            Shape: [num_anchors,4].
+        variances: (list[float]) Variances of anchorboxes
     Return:
-        encoded boxes (tensor), Shape: [num_priors, 4]
+        encoded boxes (tensor), Shape: [num_anchors, 4]
     """
     
-    # dist b/t match center and prior's center
-    g_cxcy = (matched[:, :2] + matched[:, 2:]) / 2 - priors[:, :2]
+    # dist b/t match center and anchor's center
+    g_cxcy = (matched[:, :2] + matched[:, 2:]) / 2 - anchors[:, :2]
     # encode variance
-    g_cxcy /= (variances[0] * priors[:, 2:])
-    # match wh / prior wh
-    g_wh = (matched[:, 2:] - matched[:, :2]) / priors[:, 2:]
+    g_cxcy /= (variances[0] * anchors[:, 2:])
+    # match wh / anchor wh
+    g_wh = (matched[:, 2:] - matched[:, :2]) / anchors[:, 2:]
     # g_wh = torch.log(g_wh) / variances[1]
     g_wh = torch.log(g_wh + 1e-10) / variances[1]
     # return target for smooth_l1_loss
-    return torch.cat([g_cxcy, g_wh], 1)  # [num_priors,4]
+    return torch.cat([g_cxcy, g_wh], 1)  # [num_anchors,4]
 
 
 # Adapted from https://github.com/Hakuyume/chainer-ssd
-def decode(loc, priors, variances):
-    """Decode locations from predictions using priors to undo
+def decode(loc, anchors, variances):
+    """Decode locations from predictions using anchors to undo
     the encoding we did for offset regression at train time.
     Args:
         loc (tensor): location predictions for loc layers,
-            Shape: [num_priors,4]
-        priors (tensor): Prior boxes in center-offset form.
-            Shape: [num_priors,4].
-        variances: (list[float]) Variances of priorboxes
+            Shape: [num_anchors,4]
+        anchors (tensor): Prior boxes in center-offset form.
+            Shape: [num_anchors,4].
+        variances: (list[float]) Variances of anchorboxes
     Return:
         decoded bounding box predictions
         (xmin, ymin, xmax, ymax)
     """
     
     boxes = torch.cat((
-        priors[:, :2] + loc[:, :2] * variances[0] * priors[:, 2:],
-        priors[:, 2:] * torch.exp(loc[:, 2:] * variances[1])), 1)
+        anchors[:, :2] + loc[:, :2] * variances[0] * anchors[:, 2:],
+        anchors[:, 2:] * torch.exp(loc[:, 2:] * variances[1])), 1)
     boxes[:, :2] -= boxes[:, 2:] / 2
     boxes[:, 2:] += boxes[:, :2]
     return boxes
@@ -188,12 +188,12 @@ def nms(boxes, scores, overlap=0.5, top_k=200):
     """Apply non-maximum suppression at test time to avoid detecting too many
     overlapping bounding boxes for a given object.
     Args:
-        boxes: (tensor) The location preds for the img, Shape: [num_priors,4].
-        scores: (tensor) The class predscores for the img, Shape:[num_priors].
+        boxes: (tensor) The location preds for the img, Shape: [num_anchors,4].
+        scores: (tensor) The class predscores for the img, Shape:[num_anchors].
         overlap: (float) The overlap thresh for suppressing unnecessary boxes.
         top_k: (int) The Maximum number of box preds to consider.
     Return:
-        The indices of the kept boxes with respect to num_priors.
+        The indices of the kept boxes with respect to num_anchors.
     """
     
     keep = scores.new(scores.size(0)).zero_().long()
@@ -251,33 +251,33 @@ def nms(boxes, scores, overlap=0.5, top_k=200):
     return keep, count
 
 
-def refine_priors(loc_pred, priors, variance):
+def refine_anchors(loc_pred, anchors, variance):
     """
-    Refine location of priors with location predicts.
-    :param loc_pred: (batch_size, num_priors, 4),
+    Refine location of anchors with location predicts.
+    :param loc_pred: (batch_size, num_anchors, 4),
         (norm_cx, norm_cy, norm_w, norm_h)
-    :param priors: (num_priors, 4), (cx, cy, w, h)
+    :param anchors: (num_anchors, 4), (cx, cy, w, h)
     :param variance: (var_xy, var_wh)
-    :return: refined_priors (batch_size, num_priors, 4),
+    :return: refined_anchors (batch_size, num_anchors, 4),
         (cx, cy, w, h)
     """
     num = loc_pred.size(0)
-    num_priors = priors.size(0)
+    num_anchors = anchors.size(0)
     
-    assert loc_pred.size(1) == num_priors, 'priors'
+    assert loc_pred.size(1) == num_anchors, 'anchors'
     
-    refined_priors = torch.Tensor(num, num_priors, 4).type_as(priors)
+    refined_anchors = torch.Tensor(num, num_anchors, 4).type_as(anchors)
     for ind in range(num):
         cur_loc = loc_pred[ind]
         # cur_loc (norm_dx, norm_dy, norm_w, norm_h)
-        # priors(cx, cy, w, h)
+        # anchors(cx, cy, w, h)
         # boxes (x1, y1, x2, y2)
-        boxes = decode(cur_loc, priors, variance)
+        boxes = decode(cur_loc, anchors, variance)
         # (cx, cy, x2, y2)
         # pdb.set_trace()
         boxes[:, :2] = (boxes[:, :2] + boxes[:, 2:]) / 2.0
         # (cx, cy, w, h)
         boxes[:, 2:] = (boxes[:, 2:] - boxes[:, :2]) * 2.0
-        refined_priors[ind] = boxes
+        refined_anchors[ind] = boxes
     
-    return refined_priors
+    return refined_anchors

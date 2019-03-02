@@ -10,8 +10,10 @@ import os
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
+import torch.nn.functional as functional
 from libs.utils.net_utils import TCB, make_special_tcb_layer, weights_init
-from libs.modules.prior_box import PriorBox
+from libs.utils.box_utils import refine_anchors
+from libs.modules.anchor_box import AnchorBox
 from libs.modules.detect_layer import Detect
 from libs.modules.arm_loss import ARMLoss
 from libs.modules.odm_loss import ODMLoss
@@ -26,10 +28,10 @@ class RefineDet(nn.Module):
         # pdb.set_trace()
         self.num_classes = num_classes
         self.cfg = cfg
-        self.prior_layer = PriorBox(self.cfg)
+        self.anchor_layer = AnchorBox(self.cfg)
         self.is_batchnorm = False
-        # priors are on cpu, their type will be converted accordingly in later
-        self.priors = Variable(self.prior_layer.forward(), volatile=True)
+        # anchors are on cpu, their type will be converted accordingly in later
+        self.anchors = Variable(self.anchor_layer.forward(), volatile=True)
         # vgg backbone
         self.base = None
         self.extra = None
@@ -41,8 +43,8 @@ class RefineDet(nn.Module):
         
         # detection layer and loss layers
         self.detect_layer = Detect(
-            self.num_classes, cfg['variance'], cfg['variance'],
-            cfg['top_k'], cfg['pos_prior_threshold'],
+            self.num_classes, cfg['variance'],
+            cfg['top_k_per_class'], cfg['top_k'],
             cfg['detection_conf_threshold'], cfg['detection_nms']
         )
         self.arm_loss_layer = ARMLoss(cfg['gt_overlap_threshold'],
@@ -51,11 +53,14 @@ class RefineDet(nn.Module):
         self.odm_loss_layer = ODMLoss(
             self.num_classes,
             cfg['gt_overlap_threshold'], cfg['neg_pos_ratio'],
-            cfg['variance'], cfg['variance'],
-            cfg['pos_prior_threshold']
+            cfg['variance']
         )
         self.arm_predictions = None
         self.odm_predictions = None
+        self.refined_anchors = None
+        self.variance = cfg['variance']
+        self.pos_anchor_threshold = cfg['pos_anchor_threshold']
+        self.ignore_flags_refined_anchor = None
 
     def _init_modules(self, base_model_path=None, pretrained=True,
                       fine_tuning=True):
@@ -81,8 +86,8 @@ class RefineDet(nn.Module):
             self.top_in_channels, self.internal_channels, self.is_batchnorm))
         
         # arm and odm
-        self._build_arm_head()
-        self._build_odm_head()
+        self._create_arm_head()
+        self._create_odm_head()
         
     def _init_weights(self):
         print('Initializing weights...')
@@ -142,16 +147,18 @@ class RefineDet(nn.Module):
         pyramid_features = [p1, p2, p3, p4]
         # print([k.shape for k in pyramid_features])
         if x.is_cuda:
-            self.priors = self.priors.cuda()
+            self.anchors = self.anchors.cuda()
         # Predictions of two heads
         self.arm_predictions = tuple(self._forward_arm_head(forward_features))
         self.odm_predictions = tuple(self._forward_odm_head(pyramid_features))
+        # Refine anchores and get ignore flags for refined anchores using self.arm_predictions
+        self._refine_arm_anchors(self.arm_predictions)
         if not self.training:
-            return self.detect_layer(self.arm_predictions, self.odm_predictions,
-                                     self.priors.data)
+            return self.detect_layer(self.odm_predictions,
+                                     self.refined_anchors,
+                                     self.ignore_flags_refined_anchor)
         elif targets is not None:
             return self.calculate_loss(targets)
-        # return self.arm_predictions, self.odm_predictions
         
     
     def calculate_loss(self, targets):
@@ -164,9 +171,10 @@ class RefineDet(nn.Module):
         :return odm_loss_conf: multiple confidence loss for ARM
         """
         arm_loss_loc, arm_loss_conf = self.arm_loss_layer(
-            self.arm_predictions, self.priors, targets)
+            self.arm_predictions, self.anchors, targets)
         odm_loss_loc, odm_loss_conf = self.odm_loss_layer(
-            self.arm_predictions, self.odm_predictions, self.priors, targets)
+            self.odm_predictions, self.refined_anchors,
+            self.ignore_flags_refined_anchor, targets)
         
         return arm_loss_loc, arm_loss_conf, odm_loss_loc, odm_loss_conf
     
@@ -177,16 +185,29 @@ class RefineDet(nn.Module):
         raise NotImplementedError('You should re-write the '
                                   '"calculate_forward_features" function')
     
-
+    def _refine_arm_anchors(self, arm_predictions):
+        """
+        Refine anchores and get ignore flag for refined anchores using outputs of ARM.
+        """
+        arm_loc, arm_conf = arm_predictions
+        # Detach softmax of confidece predictions to block backpropation.
+        arm_score = functional.softmax(arm_conf.detach(), -1)
+        # Adjust anchors with arm_loc.
+        # The refined_pirors is better to be considered as predicted ROIs,
+        # like Faster RCNN in a sence.
+        self.refined_anchors = refine_anchors(arm_loc.data, self.anchors.data,
+                                       self.variance)
+        self.ignore_flags_refined_anchor = arm_score[:, :, 1] < self.pos_anchor_threshold
+        
     def _forward_arm_head(self, forward_features):
         """
         Apply ARM heads to forward features and concatenate results of all heads
         into one variable.
         :param forward_features: a list, features of four layers.
         :return arm_loc_pred: location predictions for layers,
-            shape is (batch, num_priors, 4)
+            shape is (batch, num_anchors, 4)
         :return arm_conf_pred: confidence predictions for layers,
-            shape is (batch, num_priors, 2)
+            shape is (batch, num_anchors, 2)
         """
         arm_loc_pred = []
         arm_conf_pred = []
@@ -195,7 +216,7 @@ class RefineDet(nn.Module):
         for (x, l, c) in zip(forward_features, self.arm_loc, self.arm_conf):
             arm_loc_pred.append(l(x).permute(0, 2, 3, 1).contiguous())
             arm_conf_pred.append(c(x).permute(0, 2, 3, 1).contiguous())
-        # (batch, num_priors*pred)
+        # (batch, num_anchors*pred)
         arm_loc_pred = torch.cat([o.view(o.size(0), -1)
                                  for o in arm_loc_pred], 1)
         arm_conf_pred = torch.cat([o.view(o.size(0), -1)
@@ -211,9 +232,9 @@ class RefineDet(nn.Module):
         into one variable.
         :param pyramid_features: a list, features of four layers.
         :return odm_loc_pred: location predictions for layers,
-            shape is (batch, num_priors, 4)
+            shape is (batch, num_anchors, 4)
         :return odm_conf_pred: confidence predictions for layers,
-            shape is (batch, num_priors, num_classes)
+            shape is (batch, num_anchors, num_classes)
         """
         odm_loc_pred = []
         odm_conf_pred = []
@@ -225,15 +246,15 @@ class RefineDet(nn.Module):
                                     for o in odm_loc_pred], 1)
         odm_conf_pred = torch.cat([o.view(o.size(0), -1)
                                      for o in odm_conf_pred], 1)
-        # Shape is (batch, num_priors, 4)
+        # Shape is (batch, num_anchors, 4)
         odm_loc_pred = odm_loc_pred.view(odm_loc_pred.size(0), -1, 4)
-        # Shape is (batch, num_priors, num_classes)
+        # Shape is (batch, num_anchors, num_classes)
         odm_conf_pred = odm_conf_pred.view(odm_conf_pred.size(0), -1,
                                                self.num_classes)
         
         return odm_loc_pred, odm_conf_pred
     
-    def _build_arm_head(self):
+    def _create_arm_head(self):
         """
         ARM(Object Detection Module)
         """
@@ -253,7 +274,7 @@ class RefineDet(nn.Module):
         self.arm_loc = nn.ModuleList(loc_layers)
         self.arm_conf = nn.ModuleList(conf_layers)
         
-    def _build_odm_head(self):
+    def _create_odm_head(self):
         """
         ODM(Object Detection Module)
         """

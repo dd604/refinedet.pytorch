@@ -27,10 +27,10 @@ voc320 = {
     'tcb_channles': 256,
     'gt_overlap_threshold': 0.5,
     'neg_pos_ratio': 3,
-    # prior with positive probility less than this will be ignored
+    # anchor with positive probility less than this will be ignored
     'use_batch_norm': False,
-    'pos_prior_threshold': 0.01,
-    'top_k_pre_nms': 400,
+    'pos_anchor_threshold': 0.01,
+    'top_k_per_class': 400,
     'top_k': 200,
     'detection_nms': 0.45,
     'detection_conf_threshold': 0.01,
@@ -55,10 +55,10 @@ voc512 = {
     'tcb_channles': 256,
     'gt_overlap_threshold': 0.5,
     'neg_pos_ratio': 3,
-    # prior with positive probility less than this will be ignored
+    # anchor with positive probility less than this will be ignored
     'use_batch_norm': False,
-    'pos_prior_threshold': 0.01,
-    'top_k_pre_nms': 400,
+    'pos_anchor_threshold': 0.01,
+    'top_k_per_class': 400,
     'top_k': 200,
     'detection_nms': 0.45,
     'detection_conf_threshold': 0.01,
@@ -84,10 +84,10 @@ coco320 = {
     'tcb_channles': 256,
     'gt_overlap_threshold': 0.5,
     'neg_pos_ratio': 3,
-    # prior with positive probility less than this will be ignored
+    # anchor with positive probility less than this will be ignored
     'use_batch_norm': False,
-    'pos_prior_threshold': 0.01,
-    'top_k_pre_nms': 400,
+    'pos_anchor_threshold': 0.01,
+    'top_k_per_class': 400,
     'top_k': 200,
     'detection_nms': 0.45,
     'detection_conf_threshold': 0.01,
@@ -113,10 +113,10 @@ coco512 = {
     'tcb_channles': 256,
     'gt_overlap_threshold': 0.5,
     'neg_pos_ratio': 3,
-    # prior with positive probility less than this will be ignored
+    # anchor with positive probility less than this will be ignored
     'use_batch_norm': False,
-    'pos_prior_threshold': 0.01,
-    'top_k_pre_nms': 400,
+    'pos_anchor_threshold': 0.01,
+    'top_k_per_class': 400,
     'top_k': 200,
     'detection_nms': 0.45,
     'detection_conf_threshold': 0.01,

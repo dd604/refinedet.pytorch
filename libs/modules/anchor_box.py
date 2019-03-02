@@ -12,15 +12,15 @@ from itertools import product as product
 import torch
 
 
-class PriorBox(object):
-    """Compute priorbox coordinates in center-offset form for each source
+class AnchorBox(object):
+    """Compute anchorbox coordinates in center-offset form for each source
     feature map.
     """
     def __init__(self, cfg):
-        super(PriorBox, self).__init__()
+        super(AnchorBox, self).__init__()
         self.image_size = cfg['min_dim']
-        # number of priors for feature map location (either 4 or 6)
-        self.num_priors = len(cfg['aspect_ratios'])
+        # number of anchors for feature map location (either 4 or 6)
+        self.num_anchors = len(cfg['aspect_ratios'])
         self.variance = cfg['variance'] or [0.1]
         self.feature_maps = cfg['feature_maps']
         self.min_sizes = cfg['min_sizes']
