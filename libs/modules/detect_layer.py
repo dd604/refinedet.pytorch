@@ -70,7 +70,8 @@ class Detect(nn.Module):
             all_boxes = decode(loc_data[idx], refined_anchors[idx],
                                self.variance)
             # Ignore predictions whose positive scores are small.
-            flag = 1 - ignore_flags_refined_anchor
+            # pdb.set_trace()
+            flag = ignore_flags_refined_anchor[idx].data < 1
             box_flag = flag.unsqueeze(flag.dim()).expand_as(all_boxes)
             conf_flag = flag.unsqueeze(flag.dim()).expand_as(score_data[idx])
             select_boxes = all_boxes[box_flag].view(-1, 4)

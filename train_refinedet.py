@@ -16,8 +16,8 @@ from libs.dataset.blob_dataset import BlobDataset
 
 import pdb
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '2'
-#os.environ['CUDA_VISIBLE_DEVICES'] = '1'
+#os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+os.environ['CUDA_VISIBLE_DEVICES'] = '1'
 #os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
 
 
