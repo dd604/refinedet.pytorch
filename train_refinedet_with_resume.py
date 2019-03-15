@@ -38,9 +38,11 @@ parser.add_argument('--input_size', default=320, type=int,
                     help='Input size for training')
 parser.add_argument('--batch_size', default=32, type=int,
                     help='Batch size for training')
+parser.add_argument('--resume', default=False, type=str2bool,
+                    help='Resume training')
 parser.add_argument('--resume_checkpoint', default=None, type=str,
                     help='Checkpoint state_dict file to resume training from')
-parser.add_argument('--start_iter', default=0, type=int,
+parser.add_argument('--resume_iter', default=0, type=int,
                     help='Resume training at this iter')
 parser.add_argument('--num_workers', default=8, type=int,
                     help='Number of workers used in dataloading')
@@ -117,7 +119,7 @@ def train():
             net = refinedet.cuda()
         cudnn.benchmark = True
     # Resume
-    if args.resume_checkpoint:
+    if args.resume and args.resume_checkpoint:
         print('Resuming training, loading {}...'.format(args.resume_checkpoint))
         net.load_weights(args.resume_checkpoint)
 
@@ -151,6 +153,11 @@ def train():
     # number of epoch
     num_epoch = cfg['max_iter'] // num_iter_per_epoch
     iteration = 0
+    if args.resume:
+        num_epoch = (cfg['max_iter'] - args.resume_iter) // num_iter_per_epoch
+        iteration = args.resume_iter
+        
+    start_iteration = iteration
     total_bi_loc_loss = 0
     total_bi_conf_loss = 0
     total_multi_loc_loss = 0
@@ -197,7 +204,7 @@ def train():
                 # print('iter ' + repr(iteration) +
                 #       ' || Loss: %.4f ||' % (loss.data[0]), end=' ')
     
-            if iteration != 0 and iteration % cfg['checkpoint_step'] == 0:
+            if iteration != start_iteration and iteration % cfg['checkpoint_step'] == 0:
                 print('Saving state, iter:', iteration)
                 torch.save(refinedet.state_dict(),
                            os.path.join(model_save_folder,

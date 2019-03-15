@@ -1,1 +1,1 @@
-nohup python train_refinedet.py --dataset coco --input_size 320 --network resnet101 --basenet resnet101.pth --save_folder "weights/resnet101" > resnet101_coco320_nohup.out 2>&1 &
+CUDA_VISIBLE_DEVICES=2 nohup python train_refinedet.py --dataset coco --input_size 320 --batch_size 32 --network resnet101 --basenet resnet101.pth --save_folder "weights/resnet101" > resnet101_coco320_nohup.out 2>&1 &
