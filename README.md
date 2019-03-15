@@ -70,7 +70,7 @@ The trained models producing the above performance can be downloaded from Dropbo
 
 |Method |Backbone | Input Size | mAP | FPS |
 |-------|---------|------------|-----|-----|
-|SSD      | ResNet101 | 300 x 300 | 25.1 | - |
+|SSD321      | ResNet101 | 321 x 321 | 28.0 | - |
 |RefineDet(Official)| ResNet101| 320 x 320 | 32.0 | - |
 |**RefineDet(Our)** | ResNet101| 320 x 320 | 31.7 | ~11 |
 
