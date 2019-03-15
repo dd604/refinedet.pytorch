@@ -1,7 +1,7 @@
 # RefineDet in PyTorch
 This is a PyTorch implementation of [Single-Shot Refinement Neural Network for Object Detection](https://arxiv.org/abs/1711.06897) that is a work by Shifeng Zhang, Longyin Wen, Xiao Bian, Zhen Lei and Stan Z. Li in CVPR2018. The official and original Caffe code can be found [here](https://github.com/sfzhang15/RefineDet).
 This implementation mainly refers the official RefineDet in Caffe [sfzhang15/RefineDet](https://github.com/sfzhang15/RefineDet) and a PyTorch implementation of SSD [amdegroot/ssd.pytorch](https://github.com/amdegroot/ssd.pytorch). Its sublibrary(*libs/dataset/datasets*) to process datasets is obtained from [jwyang/faster-rcnn.pytorch](https://github.com/jwyang/faster-rcnn.pytorch) with minor modification.
-
+A simple post in Chinese about this project is [here](https://zhuanlan.zhihu.com/p/56800496).
 
 ## Repuisites
 * Python 2.7
@@ -80,7 +80,6 @@ Training is failed with NAN loss when input size is 512x512, and I am seeking re
 
 ## Demo
 You can run demo/demo.ipynb with jupyter notebook to visualize detection results.
-
 
 ## Authors
 * [Dongdong Wang](https://github.com/dd604)
