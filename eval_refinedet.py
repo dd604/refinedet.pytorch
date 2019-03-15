@@ -72,20 +72,20 @@ parser.add_argument('--cuda', default=True, type=str2bool,
 args = parser.parse_args()
 
 #args.input_size = 512
-args.input_size = 320
+#args.input_size = 320
 #args.dataset = 'voc'
-args.dataset = 'coco'
+#args.dataset = 'coco'
 #args.network = 'vgg16'
 #postfix_iter = 120000
-args.network = 'resnet101'
-postfix_iter = 410000
-result_path = '{}_{}x{}'.format(args.network, str(args.input_size),
-                              str(args.input_size))
-subdir = 'refinedet{}_{}'.format(args.input_size, args.dataset) 
-args.model_path = './weights/{}/{}/{}_{}.pth'.format(
-    args.network, subdir, subdir,
-    str(postfix_iter)
-)
+#args.network = 'resnet101'
+#postfix_iter = 410000
+#result_path = '{}_{}x{}'.format(args.network, str(args.input_size),
+#                              str(args.input_size))
+#subdir = 'refinedet{}_{}'.format(args.input_size, args.dataset) 
+#args.model_path = './weights/{}/{}/{}_{}.pth'.format(
+#    args.network, subdir, subdir,
+#    str(postfix_iter)
+#)
 
 
 num_gpus = 1
