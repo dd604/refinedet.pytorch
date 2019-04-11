@@ -183,7 +183,7 @@ class RefineDet(nn.Module):
         One should re-write this function and calculate forward features of layer1-4
         """
         raise NotImplementedError('You should re-write the '
-                                  '"calculate_forward_features" function')
+                                  '"_get_forward_features" function')
     
     def _refine_arm_anchors(self, arm_predictions):
         """
