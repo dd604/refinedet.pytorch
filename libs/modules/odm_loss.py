@@ -61,8 +61,9 @@ class ODMLoss(nn.Module):
             # labels = targets[idx][:, -1].data
             # Refined anchors of this idx
             cur_anchors = refined_anchors[idx]
-            match(self.overlap_thresh, truths, cur_anchors, self.variance,
-                  labels, loc_t, conf_t, idx)
+            cur_ignore_flags = ignore_flags_refined_anchor[idx]
+            match(self.overlap_thresh, truths, cur_anchors, cur_ignore_flags,
+                  self.variance, labels, loc_t, conf_t, idx)
         
         # Wrap targets
         loc_t = Variable(loc_t, requires_grad=False)
@@ -84,7 +85,7 @@ class ODMLoss(nn.Module):
         loss_conf_proxy = loss_conf_proxy.view(num, -1)
         # Exclude positives
         loss_conf_proxy[pos] = 0
-        # Exclude easy negatives
+        # Exclude ingored refined anchors.
         ignore_neg_idx = ((conf_t <= 0) +
                           ignore_flags_refined_anchor
                           ).gt(1)
