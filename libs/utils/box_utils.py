@@ -120,8 +120,8 @@ def match(threshold, truths, anchors, variances, labels, loc_t, conf_t,
     loc_t[idx] = loc  # [num_anchors,4] encoded offsets to learn
     conf_t[idx] = conf  # [num_anchors] top class label for each anchor
 
-def match(threshold, truths, anchors, ignore_flags, variances, labels, loc_t,
-          conf_t, idx):
+def match_with_flags(threshold, truths, anchors, ignore_flags, variances,
+                     labels, loc_t, conf_t, idx):
     """Match each anchor box with the ground truth box of the highest jaccard
     overlap, encode the bounding boxes, then return the matched indices
     corresponding to both confidence and location preds.

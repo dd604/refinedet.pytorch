@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 import torch.nn.functional as functional
-from libs.utils.box_utils import log_sum_exp, match
+from libs.utils.box_utils import log_sum_exp, match_with_flags
 
 import pdb
 
@@ -62,8 +62,9 @@ class ODMLoss(nn.Module):
             # Refined anchors of this idx
             cur_anchors = refined_anchors[idx]
             cur_ignore_flags = ignore_flags_refined_anchor[idx]
-            match(self.overlap_thresh, truths, cur_anchors, cur_ignore_flags,
-                  self.variance, labels, loc_t, conf_t, idx)
+            match_with_flags(self.overlap_thresh, truths, cur_anchors,
+                             cur_ignore_flags, self.variance, labels,
+                             loc_t, conf_t, idx)
         
         # Wrap targets
         loc_t = Variable(loc_t, requires_grad=False)
