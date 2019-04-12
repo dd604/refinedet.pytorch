@@ -58,12 +58,14 @@ parser.add_argument('--save_folder', default='weights/vgg16',
                     help='Directory for saving checkpoint models')
 args = parser.parse_args()
 
-num_gpus = 1
+
 if torch.cuda.is_available():
     print('CUDA devices: ', torch.cuda.device)
     print('GPU numbers: ', torch.cuda.device_count())
     num_gpus = torch.cuda.device_count()
     
+num_gpus = 1
+
 if torch.cuda.is_available():
     if args.cuda:
         torch.set_default_tensor_type('torch.cuda.FloatTensor')
@@ -107,6 +109,7 @@ def train():
     refinedet.create_architecture(
         os.path.join(args.save_folder, args.basenet), pretrained=True,
         fine_tuning=True)
+    #pdb.set_trace()
     # For CPU
     net = refinedet
     # For GPU/GPUs
@@ -151,10 +154,10 @@ def train():
     # number of epoch
     num_epoch = cfg['max_iter'] // num_iter_per_epoch
     iteration = 0
-    total_bi_loc_loss = 0
-    total_bi_conf_loss = 0
-    total_multi_loc_loss = 0
-    total_multi_conf_loss = 0
+    arm_loss_loc = 0
+    arm_loss_conf = 0
+    odm_loss_loc = 0
+    odm_loss_conf = 0
     for epoch in range(0, num_epoch):
         # pdb.set_trace()
         for i_batch, (images, targets) in enumerate(data_loader):
@@ -180,20 +183,27 @@ def train():
             optimizer.step()
             t1 = time.time()
             if num_gpus > 1:
-                total_bi_loc_loss += bi_loss_loc.mean().data[0]
-                total_bi_conf_loss += bi_loss_conf.mean().data[0]
-                total_multi_loc_loss += multi_loss_loc.mean().data[0]
-                total_multi_conf_loss += multi_loss_conf.mean().data[0]
+                arm_loss_loc = bi_loss_loc.mean().data[0]
+                arm_loss_conf = bi_loss_conf.mean().data[0]
+                odm_loss_loc = multi_loss_loc.mean().data[0]
+                odm_loss_conf = multi_loss_conf.mean().data[0]
             else:
-                total_bi_loc_loss += bi_loss_loc.data[0]
-                total_bi_conf_loss += bi_loss_conf.data[0]
-                total_multi_loc_loss += multi_loss_loc.data[0]
-                total_multi_conf_loss += multi_loss_conf.data[0]
+                arm_loss_loc = bi_loss_loc.data[0]
+                arm_loss_conf = bi_loss_conf.data[0]
+                odm_loss_loc = multi_loss_loc.data[0]
+                odm_loss_conf = multi_loss_conf.data[0]
             
             if iteration % 10 == 0:
                 print('timer: %.4f sec.' % (t1 - t0))
                 print('iter ' + repr(iteration) +
-                      ' || Loss: %.4f ||' % (loss.data[0]) + ' ')
+                      (' || ARM Loss Loc: %.4f  || ARM Loss Conf: %.4f' + 
+                       ' || ODM Loss Loc: %.4f  || ODM Loss Conf: %.4f' +
+                       ' || Loss: %.4f ||') % (
+                          arm_loss_loc, arm_loss_conf, 
+                          odm_loss_loc, odm_loss_conf, 
+                          loss.data[0]) + ' ')
+#                 print('iter ' + repr(iteration) +
+#                       ' || Loss: %.4f ||' % (loss.data[0]) + ' ')
                 # print('iter ' + repr(iteration) +
                 #       ' || Loss: %.4f ||' % (loss.data[0]), end=' ')
     

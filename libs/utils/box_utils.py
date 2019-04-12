@@ -140,6 +140,7 @@ def match_with_flags(threshold, truths, anchors, ignore_flags, variances,
     Return:
         The matched indices corresponding to 1)location and 2)confidence preds.
     """
+    # pdb.set_trace()
     # jaccard index
     overlaps = jaccard(
         truths,
@@ -147,7 +148,8 @@ def match_with_flags(threshold, truths, anchors, ignore_flags, variances,
     )
     # fix overlaps according to ignore_flags, columns of ignored anchors are assigned
     # zero overlap.
-    overlaps[:, ignore_flags] = 0.
+    ignore = ignore_flags.unsqueeze(0).expand_as(overlaps)
+    overlaps[ignore] = 0.
     # (Bipartite Matching)
     # [1,num_objects] best anchor for each ground truth
     best_anchor_overlap, best_anchor_idx = overlaps.max(1, keepdim=True)
@@ -174,10 +176,10 @@ def match_with_flags(threshold, truths, anchors, ignore_flags, variances,
     # It is better to modify loc to zeros, or weights to indicate
     # like faster rcnn
     loc = encode(matches, anchors, variances)
-    loc[background_flag, :] = -1
+    background_flag = background_flag.unsqueeze(-1).expand_as(loc)
+    loc[background_flag] = -1.
     loc_t[idx] = loc  # [num_anchors,4] encoded offsets to learn
     conf_t[idx] = conf  # [num_anchors] top class label for each anchor
-    
     
 def encode(matched, anchors, variances):
     """Encode the variances from the anchorbox layers into the ground truth boxes

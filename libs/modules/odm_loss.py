@@ -43,7 +43,7 @@ class ODMLoss(nn.Module):
         
         # Match refined_anchors (predicted ROIs) and ground truth boxes
         # Consider each image in one batch.
-        # pdb.set_trace()
+#         pdb.set_trace()
         for idx in range(num):
             cur_targets = targets[idx].data
             # Ingore background (label id is 0)
@@ -61,7 +61,8 @@ class ODMLoss(nn.Module):
             # labels = targets[idx][:, -1].data
             # Refined anchors of this idx
             cur_anchors = refined_anchors[idx]
-            cur_ignore_flags = ignore_flags_refined_anchor[idx]
+            #pdb.set_trace()
+            cur_ignore_flags = ignore_flags_refined_anchor[idx].data
             match_with_flags(self.overlap_thresh, truths, cur_anchors,
                              cur_ignore_flags, self.variance, labels,
                              loc_t, conf_t, idx)
