@@ -119,5 +119,7 @@ class ODMLoss(nn.Module):
         total_num = num_pos.data.sum()
         loss_l /= total_num
         loss_c /= total_num
-        
+        #if (loss_l.data[0] > 100) | (loss_l.data[0] is None):
+        #    pdb.set_trace()
+         
         return loss_l, loss_c

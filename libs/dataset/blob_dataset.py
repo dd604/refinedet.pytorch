@@ -97,8 +97,7 @@ class BlobDataset(data.Dataset):
             index (int): index of img to show
         Return:
             gbr image
-        '''
-        
+        '''        
         path = self.roidb[index]['image']
         img = np.array(Image.open(path))[:, :, (2, 1, 0)]
         

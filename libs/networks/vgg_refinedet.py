@@ -61,10 +61,10 @@ class VGGRefineDet(_RefineDet):
         self.layer3 = nn.Sequential(*(base_layers[key_layer_ids[1]:]))
         self.layer4 = nn.Sequential(*(self.extra.children()))
         # L2Norm has been initialized while building.
-        # self.L2Norm_conv4_3 = L2Norm(self.layers_out_channels[0], 20)
-        # self.L2Norm_conv5_3 = L2Norm(self.layers_out_channels[1], 16)
-        self.L2Norm_conv4_3 = L2Norm(self.layers_out_channels[0], 10)
-        self.L2Norm_conv5_3 = L2Norm(self.layers_out_channels[1], 8)
+        self.L2Norm_conv4_3 = L2Norm(self.layers_out_channels[0], 20)
+        self.L2Norm_conv5_3 = L2Norm(self.layers_out_channels[1], 16)
+        #self.L2Norm_conv4_3 = L2Norm(self.layers_out_channels[0], 10)
+        #self.L2Norm_conv5_3 = L2Norm(self.layers_out_channels[1], 8)
 
         # build pyramid layers and other parts
         # super(VGGRefineDet, self)._init_part_modules()

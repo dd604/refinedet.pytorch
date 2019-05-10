@@ -196,7 +196,7 @@ class RefineDet(nn.Module):
         # The refined_pirors is better to be considered as predicted ROIs,
         # like Faster RCNN in a sence.
         self.refined_anchors = refine_anchors(arm_loc.data, self.anchors.data,
-                                       self.variance)
+                                              self.variance)
         self.ignore_flags_refined_anchor = arm_score[:, :, 1] < self.pos_anchor_threshold
         
     def _forward_arm_head(self, forward_features):

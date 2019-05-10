@@ -13,13 +13,22 @@ from libs.dataset.config import voc320, voc512, coco320, coco512, MEANS
 from libs.dataset.transform import detection_collate
 from libs.dataset.roidb import combined_roidb
 from libs.dataset.blob_dataset import BlobDataset
-
+import numpy as np
+import random
 import pdb
 
-#os.environ['CUDA_VISIBLE_DEVICES'] = '2'
-#os.environ['CUDA_VISIBLE_DEVICES'] = '1'
-#os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
+def setup_seed(seed):
+     torch.manual_seed(seed)
+     torch.cuda.manual_seed_all(seed)
+     np.random.seed(seed)
+     random.seed(seed)
+     torch.backends.cudnn.deterministic = True
 
+
+#os.environ['CUDA_VISIBLE_DEVICES'] = '2'
+#os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+#os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
+setup_seed(0)
 
 def str2bool(v):
     return v.lower() in ('yes', 'true', 't', '1')
@@ -151,9 +160,9 @@ def train():
     # Create batch iterator
     # Number of iterations in each epoch
     num_iter_per_epoch = len(blob_dataset) // args.batch_size
-    # number of epoch
-    num_epoch = cfg['max_iter'] // num_iter_per_epoch
-    iteration = 0
+    # number of epoch, in case of resuming from args.start_iter
+    num_epoch = (cfg['max_iter'] - args.start_iter) // num_iter_per_epoch
+    iteration = args.start_iter
     arm_loss_loc = 0
     arm_loss_conf = 0
     odm_loss_loc = 0
@@ -207,7 +216,8 @@ def train():
                 # print('iter ' + repr(iteration) +
                 #       ' || Loss: %.4f ||' % (loss.data[0]), end=' ')
     
-            if iteration != 0 and iteration % cfg['checkpoint_step'] == 0:
+            if iteration != 0 and iteration % 10000 == 0:
+            #if iteration != 0 and iteration % cfg['checkpoint_step'] == 0:
                 print('Saving state, iter:', iteration)
                 torch.save(refinedet.state_dict(),
                            os.path.join(model_save_folder,
