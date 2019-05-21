@@ -66,8 +66,6 @@ def jaccard(box_a, box_b):
     area_b = ((box_b[:, 2] - box_b[:, 0]) *
               (box_b[:, 3] - box_b[:, 1])).unsqueeze(0).expand_as(inter)  # [A,B]
     union = area_a + area_b - inter
-    if len((union < 0).nonzero()) > 0:
-        pdb.set_trace()
     return inter / union  # [A,B]
 
 
@@ -141,17 +139,20 @@ def match_with_flags(threshold, truths, anchors, ignore_flags, variances,
     Return:
         The matched indices corresponding to 1)location and 2)confidence preds.
     """
-    pdb.set_trace()
+    #pdb.set_trace()
     # jaccard index
     # After refinement, some anchors may have zero width or height, causing overlaps to be Nan.
     overlaps = jaccard(
         truths,
         point_form(anchors)
-    )
+    )   
+    #nan_flags = (overlaps != overlaps)
+    #if len(nan_flags.nonzero()) > 0:
+    #    pdb.set_trace()
     # Modify overlaps according to ignore_flags, columns of ignored anchors are assigned
     # zero overlap.
-    ignore = ignore_flags.unsqueeze(0).expand_as(overlaps)
-    overlaps[ignore] = 0.
+    # ignore = ignore_flags.unsqueeze(0).expand_as(overlaps)
+    # overlaps[ignore] = 0.
     # (Bipartite Matching)
     # [1,num_objects] best anchor for each ground truth
     best_anchor_overlap, best_anchor_idx = overlaps.max(1, keepdim=True)
@@ -162,7 +163,7 @@ def match_with_flags(threshold, truths, anchors, ignore_flags, variances,
     best_anchor_idx.squeeze_(1)
     best_anchor_overlap.squeeze_(1)    
     # Exclude some gts that have too small overlap with anchor
-    gt_flag = best_anchor_overlap > 1e-5
+    gt_flag = best_anchor_overlap > 1e-6
     #gt_flag = best_anchor_overlap > 1e-4
 #     pdb.set_trace()
     # Ensure anchors matched with selected gts have big overlap.
@@ -345,11 +346,15 @@ def refine_anchors(loc_pred, anchors, variance):
         # anchors(cx, cy, w, h)
         # boxes (x1, y1, x2, y2)
         boxes = decode(cur_loc, anchors, variance)
+        ori_boxes = boxes.clone()
         # (cx, cy, x2, y2)
         # pdb.set_trace()
         boxes[:, :2] = (boxes[:, :2] + boxes[:, 2:]) / 2.0
         # (cx, cy, w, h)
         boxes[:, 2:] = (boxes[:, 2:] - boxes[:, :2]) * 2.0
         refined_anchors[ind] = boxes
-    
+        #nan_flags = (boxes != boxes)
+        #if len(nan_flags.nonzero()) > 0:
+        #    pdb.set_trace()
+        #a = 0 
     return refined_anchors

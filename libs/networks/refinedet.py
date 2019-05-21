@@ -92,6 +92,7 @@ class RefineDet(nn.Module):
     def _init_weights(self):
         print('Initializing weights...')
         # initialize newly added layers' weights with xavier method
+        pdb.set_trace()
         self.extra.apply(weights_init)
         self.pyramid_layer1.apply(weights_init)
         self.pyramid_layer2.apply(weights_init)
@@ -113,6 +114,7 @@ class RefineDet(nn.Module):
         :param fine_tuning: whether fix parameters for a base model.
         :return:
         """
+        #pdb.set_trace()
         self._init_modules(base_model_path, pretrained, fine_tuning)
         self._init_weights()
     

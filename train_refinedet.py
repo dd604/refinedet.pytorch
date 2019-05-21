@@ -92,6 +92,7 @@ if not os.path.exists(args.save_folder):
 def train():
     # Assign imdb_name and imdbval_name according to args.dataset.
     if args.dataset == "voc":
+        #args.imdb_name = "voc_2007_trainval"
         args.imdb_name = "voc_2007_trainval+voc_2012_trainval"
         args.imdbval_name = "voc_2007_test"
     elif args.dataset == "coco":

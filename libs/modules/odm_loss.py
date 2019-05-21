@@ -76,6 +76,11 @@ class ODMLoss(nn.Module):
         pos_idx = pos.unsqueeze(pos.dim()).expand_as(loc_pred).detach()
         # Select postives to compute bounding box loss.
         loc_p = loc_pred[pos_idx].view(-1, 4)
+        if len(loc_p) < 1:
+            #pdb.set_trace()
+            print('no matched anchores')
+            return Variable(torch.tensor([0])), Variable(torch.tensor([0]))
+ 
         loc_t = loc_t[pos_idx].view(-1, 4)
         loss_l = functional.smooth_l1_loss(loc_p, loc_t, size_average=False)
         # Compute max conf across batch for hard negative mining
@@ -119,7 +124,5 @@ class ODMLoss(nn.Module):
         total_num = num_pos.data.sum()
         loss_l /= total_num
         loss_c /= total_num
-        #if (loss_l.data[0] > 100) | (loss_l.data[0] is None):
-        #    pdb.set_trace()
          
         return loss_l, loss_c
