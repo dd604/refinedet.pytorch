@@ -64,7 +64,7 @@ If you have any suggetion to promote this reproduction, please leave a message i
 |**RefineDet(Our)**| VGG16| 512 x 512 | 79.8 | ~30 |
 
 The speed is evaluted on P40.
-The trained models producing the above performance can be downloaded from Dropbox at [vgg16_refinedet320_voc](https://www.dropbox.com/s/eqk09xm98ixyzat/vgg16_refinedet320_voc_120000.pth?dl=0) and [vgg16_refinedet512_voc](https://www.dropbox.com/s/cova7idailp38zv/vgg16_refinedet512_voc_120000.pth?dl=0), or from BaiduPan at [vgg16_refinedet320_voc](https://pan.baidu.com/s/1xIHXgHx1wV_LzNnqLEljCg)(secret: 3wj4) and [vgg16_refinedet512_voc](https://pan.baidu.com/s/1E3MMzDmaAVzmlpC0VBzvwg)(secret: xpd1).
+The trained models producing the above performance can be downloaded from Dropbox at [vgg16_refinedet320_voc](https://www.dropbox.com/s/eqk09xm98ixyzat/vgg16_refinedet320_voc_120000.pth?dl=0) and [vgg16_refinedet512_voc](https://www.dropbox.com/s/cova7idailp38zv/vgg16_refinedet512_voc_120000.pth?dl=0), or from BaiduPan at [vgg16_refinedet320_voc](https://pan.baidu.com/s/1xIHXgHx1wV_LzNnqLEljCg)(password: 3wj4) and [vgg16_refinedet512_voc](https://pan.baidu.com/s/1E3MMzDmaAVzmlpC0VBzvwg)(password: xpd1).
 
 2). COCO2014 (Train/Test: trainval115k/minval5k)
 
@@ -75,7 +75,7 @@ The trained models producing the above performance can be downloaded from Dropbo
 |**RefineDet(Our)** | ResNet101| 320 x 320 | 31.7 | ~11 |
 
 The speed is evaluated on P40.
-The trained model can be download from Dropbox at [resnet101_refinedet320_coco](https://www.dropbox.com/s/bbrmlxzhrw2ih9b/resnet101_refinedet320_coco_400000.pth?dl=0) or from BaiduPan at [resnet101_refinedet320_coco](https://pan.baidu.com/s/1ZWMkwwo5rw92bWeVMcc_Pg)(secret: iyvw).
+The trained model can be download from Dropbox at [resnet101_refinedet320_coco](https://www.dropbox.com/s/bbrmlxzhrw2ih9b/resnet101_refinedet320_coco_400000.pth?dl=0) or from BaiduPan at [resnet101_refinedet320_coco](https://pan.baidu.com/s/1ZWMkwwo5rw92bWeVMcc_Pg)(password: iyvw).
 Training is failed with NAN loss when input size is 512x512, and I am seeking reasons.
 
 ## Demo
