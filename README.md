@@ -64,16 +64,16 @@ The coco dataset is as following:
 ```Shell
 coco
 |__ annotations
-    |_ instances_valminusminival2014.json
-    |_ instances_minival2014.json
-    |_ instances_train2014.json
-    |_ instances_val2014.json
-    |_ ...
+|   |_ instances_valminusminival2014.json
+|   |_ instances_minival2014.json
+|   |_ instances_train2014.json
+|   |_ instances_val2014.json
+|   |_ ...
 |__ images
     |_ train2014
-        |_ <im-1-name>.jpg
-        |_ ...
-        |_ <im-N-name>.jpg
+    |   |_ <im-1-name>.jpg
+    |   |_ ...
+    |   |_ <im-N-name>.jpg
     |__ val2014
         |_ <im-1-name>.jpg
         |_ ...
