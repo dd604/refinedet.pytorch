@@ -68,11 +68,6 @@ python -u train_refinedet.py --dataset voc --input_size 320 --batch_size 32 --ne
 ``` 
 Change dataset to "coco", if you want to use COCO2014.
 
-## Evaluation
-To evaluate a trained model, run as:
-```Shell
-python -u eval_refinedet.py --input_size 320 --dataset voc --network vgg16 --model_path "/your/model/path"
-```
 
 ## Performance
 The project trys to reproduce the performance of RefineDet in Caffe, but there are some gaps for VGG16. For resnet101, the results are comparable.
@@ -104,8 +99,18 @@ The trained models producing the above performance can be downloaded from Dropbo
 The trained model can be download from Dropbox at [resnet101_refinedet320_coco](https://www.dropbox.com/s/bu8khr18ped59n5/resnet101_refinedet320_coco_400000.pth?dl=0) and [resnet101_refinedet512_coco](https://www.dropbox.com/s/d5wouxm12bp50ke/resnet101_refinedet512_coco_400000.pth?dl=0) or from BaiduPan at [resnet101_refinedet320_coco](https://pan.baidu.com/s/1YIfB2Y4kChpgA4CBJPZ5oA)(password: jgjt) and [resnet101_refinedet512_coco](https://pan.baidu.com/s/1mjO4fv7STQOHwK2JEjOaWw)(password: pk2f).
 ~~Training is failed with NAN loss when input size is 512x512, and I am seeking reasons.~~ Now the problem of NAN loss is solved.
 
+
+## Evaluation
+To evaluate the trained model, you can run "eval_refinedet.py".
+For example, download the trained vgg16_refinedet320_voc model (named vgg16_refinedet320_voc_120000.pth), and put it to "output". Assigning the paremeter "model_path" as "./output/vgg16_refinedet320_voc_120000.pth"
+Run as following:
+```Shell
+python -u eval_refinedet.py --input_size 320 --dataset voc --network vgg16 --model_path "./output/vgg16_refinedet320_voc_120000.pth"
+```
+
+
 ## Demo
-You can run demos at the folder "demo".
+Using the above trained vgg16_refinedet320_voc model (vgg16_refinedet320_voc_120000.pth) and put it to "output", you can run demos at the folder "demo".
 ```
 cd demo
 python demo_simple.py
