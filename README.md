@@ -70,7 +70,7 @@ coco
 |   |_ instances_val2014.json
 |   |_ ...
 |__ images
-    |_ train2014
+    |__ train2014
     |   |_ <im-1-name>.jpg
     |   |_ ...
     |   |_ <im-N-name>.jpg
@@ -136,8 +136,7 @@ The trained model can be download from Dropbox at [resnet101_refinedet320_coco](
 
 ## Evaluation
 To evaluate the trained model, you can run "eval_refinedet.py".
-For example, download the trained vgg16_refinedet320_voc model (named vgg16_refinedet320_voc_120000.pth), and put it to "output". Assigning the paremeter "model_path" as "./output/vgg16_refinedet320_voc_120000.pth"
-Run as following:
+For example, download the trained vgg16_refinedet320_voc model (named vgg16_refinedet320_voc_120000.pth), and put it to "output". Assign parameters as following:
 ```Shell
 python -u eval_refinedet.py --input_size 320 --dataset voc --network vgg16 --model_path "./output/vgg16_refinedet320_voc_120000.pth"
 ```
