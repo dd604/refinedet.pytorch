@@ -44,7 +44,41 @@ The directory trees in data/ in my projects are as following:
 └── VOCdevkit2012
     └── VOC2012 -> /root/dataset/voc/VOCdevkit/VOC2012
 ```
-
+In details, the VOC datasets are as following:
+```Shell
+VOCdevkit2007
+|__ VOC2007
+    |_ JPEGImages
+    |_ Annotations
+    |_ ImageSets
+    |_ SegmentationClass
+    
+VOCdevkit2012
+|__ VOC2012
+    |_ JPEGImages
+    |_ Annotations
+    |_ ImageSets
+    |_ SegmentationClass
+```
+The coco dataset is as following:
+```Shell
+coco
+|__ annotations
+    |_ instances_valminusminival2014.json
+    |_ instances_minival2014.json
+    |_ instances_train2014.json
+    |_ instances_val2014.json
+    |_ ...
+|__ images
+    |_ train2014
+        |_ <im-1-name>.jpg
+        |_ ...
+        |_ <im-N-name>.jpg
+    |__ val2014
+        |_ <im-1-name>.jpg
+        |_ ...
+        |_ <im-N-name>.jpg
+```
 
 ## Pre-trained model
 You can train a RefineDet detector with [VGG16](https://arxiv.org/abs/1409.1556) or [ResNet101](https://arxiv.org/abs/1512.03385) as a base network. The pretrained models can be downloaded from [vgg16_reducedfc.pth](https://s3.amazonaws.com/amdegroot-models/vgg16_reducedfc.pth) and [resnet101.pth](https://download.pytorch.org/models/resnet101-5d3b4d8f.pth).
