@@ -11,16 +11,12 @@ from __future__ import print_function
 import os
 import os.path as osp
 import PIL
-# from model.utils.cython_bbox import bbox_overlaps
-# from model.utils.config import cfg
 from .ds_utils import bbox_overlaps
 import numpy as np
 import scipy.sparse
-from libs.dataset.path_config import cfg
+from libs.utils.path_config import cfg
 
 import pdb
-
-ROOT_DIR = cfg.ROOT_DIR
 
 class imdb(object):
   """Image database."""
@@ -81,7 +77,7 @@ class imdb(object):
 
   @property
   def cache_path(self):
-    cache_path = osp.abspath(osp.join(cfg.DATA_DIR, 'cache'))
+    cache_path = osp.abspath(osp.join(cfg.CACHE_ROOT, 'cache'))
     if not os.path.exists(cache_path):
       os.makedirs(cache_path)
     return cache_path

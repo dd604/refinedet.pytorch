@@ -84,7 +84,7 @@ def make_vgg_layers(cfg=base, batch_norm=False):
     dilation = 6
     # dilation = 3
     kernel_size = 3
-    padding = int((kernel_size + (dilation - 1) * (kernel_size - 1)) - 1) / 2
+    padding = int((kernel_size + (dilation - 1) * (kernel_size - 1)) - 1) // 2
     # cfg[-3] == 'M'
     conv_fc6 = nn.Conv2d(cfg[-4], cfg[-2], kernel_size=kernel_size,
                          padding=padding, dilation=dilation)

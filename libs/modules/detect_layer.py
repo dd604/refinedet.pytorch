@@ -55,6 +55,7 @@ class Detect(nn.Module):
             1 means an igored negative anchor, otherwise reserved.
             
         """
+        # pdb.set_trace()
         loc_data = odm_predictions[0].data
         score_data = functional.softmax(odm_predictions[1].detach(),
                                         dim=-1).data
@@ -84,7 +85,7 @@ class Detect(nn.Module):
                 # pdb.set_trace()
                 # print(type(c_mask))
                 scores = select_scores[icl][c_mask]
-                if scores.dim() == 0:
+                if len(scores) == 0:
                     continue
                 l_mask = c_mask.unsqueeze(1).expand_as(select_boxes)
                 boxes = select_boxes[l_mask].view(-1, 4)

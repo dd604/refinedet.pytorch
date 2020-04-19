@@ -20,7 +20,6 @@ import scipy.io as sio
 import xml.etree.ElementTree as ET
 import pickle
 from .imdb import imdb
-from .imdb import ROOT_DIR
 from .imdb import cfg
 from . import ds_utils
 from .voc_eval import voc_eval

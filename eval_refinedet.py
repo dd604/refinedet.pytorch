@@ -14,16 +14,15 @@ import torch.utils.data as data
 from PIL import Image
 from libs.networks.vgg_refinedet import VGGRefineDet
 from libs.networks.resnet_refinedet import ResNetRefineDet
-from libs.dataset.config import voc320, voc512, coco320, coco512, MEANS
-from libs.dataset.transform import detection_collate, BaseTransform
-from libs.dataset.roidb import combined_roidb, get_output_dir
-from libs.dataset.blob_dataset import BlobDataset
+from libs.utils.config import voc320, voc512, coco320, coco512, MEANS
+from libs.data_layers.transform import detection_collate, BaseTransform
+from libs.data_layers.roidb import combined_roidb, get_output_dir
+from libs.data_layers.blob_dataset import BlobDataset
 
 
 import pdb
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-# os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
 
 class Timer(object):
     """A simple timer."""
@@ -71,39 +70,14 @@ parser.add_argument('--cuda', default=True, type=str2bool,
                     help='Use CUDA to evaluate model')
 args = parser.parse_args()
 
-#args.input_size = 512
-#args.input_size = 320
-#args.dataset = 'voc'
-#args.dataset = 'coco'
-#args.network = 'vgg16'
-#postfix_iter = 120000
-#args.network = 'resnet101'
-#postfix_iter = 410000
-#result_path = '{}_{}x{}'.format(args.network, str(args.input_size),
-#                              str(args.input_size))
-#subdir = 'refinedet{}_{}'.format(args.input_size, args.dataset) 
-#args.model_path = './weights/{}/{}/{}_{}.pth'.format(
-#    args.network, subdir, subdir,
-#    str(postfix_iter)
-#)
 
 
-num_gpus = 1
 if torch.cuda.is_available():
     print('CUDA devices: ', torch.cuda.device)
     print('GPU numbers: ', torch.cuda.device_count())
     num_gpus = torch.cuda.device_count()
 
-if torch.cuda.is_available():
-    if args.cuda:
-        torch.set_default_tensor_type('torch.cuda.FloatTensor')
-    if not args.cuda:
-        print('WARNING: It looks like you have a CUDA device, but are not' +
-              'using CUDA.\nRun with --cuda for optimal evaluating speed.')
-        torch.set_default_tensor_type('torch.FloatTensor')
-else:
-    torch.set_default_tensor_type('torch.FloatTensor')
-
+num_gpus = 1
 
 def eval_net():
     # Assign imdb_name and imdbval_name according to args.dataset.
@@ -123,7 +97,6 @@ def eval_net():
     imdb, roidb = combined_roidb(args.imdbval_name, False)
     imdb.competition_mode(on=True)
     print('{:d} roidb entries'.format(len(roidb)))
-    
     blob_dataset = BlobDataset(
         imdb, roidb, transform=BaseTransform(cfg['min_dim'], MEANS),
         target_normalization=True)
@@ -139,33 +112,19 @@ def eval_net():
     net = refinedet
     # For GPU/GPUs
     if args.cuda:
+        net = refinedet.cuda()
         if num_gpus > 1:
-            net = torch.nn.DataParallel(refinedet)
-        else:
-            net = refinedet.cuda()
+            net = torch.nn.DataParallel(net)
         cudnn.benchmark = True
     # Load weights
     net.load_weights(args.model_path)
-
     net.eval()
     print('Test RefineDet on:', args.imdbval_name)
     print('Using the specified args:')
     print(args)
 
-    #data_loader = data.DataLoader(blob_dataset,
-    #                              batch_size=1,
-    #                              num_workers=0,
-    #                              shuffle=False,
-    #                              collate_fn=detection_collate,
-    #                              pin_memory=True)
-    # all detections are collected into:
-    #    all_boxes[cls][image] = N x 5 array of detections in
-    #    (x1, y1, x2, y2, score)
     num_images = len(imdb.image_index)
-    # num_images = len(blob_dataset)
     num_classes = imdb.num_classes
-    # num_object_classes + 1 ?
-    print(num_classes)
     all_boxes = [[[] for _ in range(num_images)]
                  for _ in range(num_classes)]
     empty_array = np.transpose(np.array([[], [], [], [], []]), (1, 0))
@@ -173,30 +132,25 @@ def eval_net():
     output_dir = get_output_dir(imdb, args.result_path)
     _t = {'im_detect': Timer(), 'misc': Timer()}
     det_file = os.path.join(output_dir, 'detections.pkl')
-    
-    
-    # pdb.set_trace()
+    # set no grad for variables
+    torch.set_grad_enabled(False)
     for idx in range(num_images):
         img, gt, h, w = blob_dataset.pull_item(idx)
-        input = Variable(img.unsqueeze(0), volatile=True)
+        input = Variable(img.unsqueeze(0))
         if args.cuda:
             input = input.cuda()
-            
         # timers forward
         _t['im_detect'].tic()
-        #start = time.time()
-        # pdb.set_trace()
         detection = net(input)
         detect_time = _t['im_detect'].toc(average=True)
-        #detect_time = time.time() - start
-        print('im_detect: {:d}/{:d} {:.3f}s\n'.format(
+        print('im_detect: {:d}/{:d} {:.3f}s'.format(
             idx + 1, num_images, detect_time))
         # skip jc = 0, because it's the background class
         for jc in range(1, num_classes):
             dets = detection[0, jc, :]
             mask = dets[:, 0].gt(0.).expand(5, dets.size(0)).t()
             dets = torch.masked_select(dets, mask).view(-1, 5)
-            if dets.dim() > 0:
+            if (len(dets) > 0) and (dets.dim() > 0):
                 boxes = dets[:, 1:]
                 boxes[:, 0] *= w
                 boxes[:, 2] *= w

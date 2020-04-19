@@ -1,35 +1,24 @@
 
+job_spec.json
+run.sh
 # data
 data/
 #voc_detections
 detection_output/
 voc_detections/
-unit_test/images.pkl
-unit_test/targets.pkl
-unit_test/*.pkl
+output/
+unit_test/
 
-refinedet320_*
-refinedet*
-nohuo.*
+nohup*
 *.out
 # Byte-compiled / optimized / DLL files
 __pycache__/
-# weights
-weights/
-
 #DS_Store
 .DS_Store
 # dev stuff
 *.ipynb
-libs_modify_relu/
-eval/
-doc/
 # pycharm
 .idea/
 # pylint
 .pylintrc
 
-nohup.*
-*.out
-
-debug_vgg16_coco320*

@@ -11,9 +11,9 @@ import torch
 import torch.nn as nn
 
 
-from vgg import make_vgg_layers, add_extra_layers, \
+from .vgg import make_vgg_layers, add_extra_layers, \
     key_layer_ids, layers_out_channels, is_batchnorm
-from refinedet import RefineDet as _RefineDet
+from .refinedet import RefineDet as _RefineDet
 from libs.utils.net_utils import L2Norm
 import pdb
 
@@ -51,7 +51,7 @@ class VGGRefineDet(_RefineDet):
             
         self.layers_out_channels = layers_out_channels
         self.extra = nn.ModuleList(add_extra_layers())
-        pdb.set_trace()
+        #pdb.set_trace()
         # construct base network
         assert key_layer_ids[2] == -1 and key_layer_ids[3] == -1, \
             'Must use outputs of the final layers in base and extra.'
@@ -62,10 +62,10 @@ class VGGRefineDet(_RefineDet):
         self.layer3 = nn.Sequential(*(base_layers[key_layer_ids[1]:]))
         self.layer4 = nn.Sequential(*(self.extra.children()))
         # L2Norm has been initialized while building.
-        self.L2Norm_conv4_3 = L2Norm(self.layers_out_channels[0], 40)
-        self.L2Norm_conv5_3 = L2Norm(self.layers_out_channels[1], 32)
-        #self.L2Norm_conv4_3 = L2Norm(self.layers_out_channels[0], 10)
-        #self.L2Norm_conv5_3 = L2Norm(self.layers_out_channels[1], 8)
+        # self.L2Norm_conv4_3 = L2Norm(self.layers_out_channels[0], 40)
+        # self.L2Norm_conv5_3 = L2Norm(self.layers_out_channels[1], 32)
+        self.L2Norm_conv4_3 = L2Norm(self.layers_out_channels[0], 10)
+        self.L2Norm_conv5_3 = L2Norm(self.layers_out_channels[1], 8)
 
         # build pyramid layers and other parts
         # super(VGGRefineDet, self)._init_part_modules()

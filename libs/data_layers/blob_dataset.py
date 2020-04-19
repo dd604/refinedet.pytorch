@@ -68,18 +68,14 @@ class BlobDataset(data.Dataset):
         # idx from 1
         labels = blobs['gt_classes']
         # opencv image, since transfrom is used.
-        # img_obj = Image.open(img_path)
         # BGR
         img = cv2.imread(img_path)
-        
         if self.target_normalization is not None:
             boxes = normalize_boxes(boxes, width, height)
         # target = np.vstack((boxes, labels))
         if self.transform is not None:
             img, boxes, labels = self.transform(img,
                                 boxes, labels)
-            #
-            # img = img[:, :, (2, 1, 0)]
             target = np.hstack((boxes, np.expand_dims(
                 labels, axis=1)))
         # [C, H, W]
@@ -87,21 +83,21 @@ class BlobDataset(data.Dataset):
                     height, width
         
         
-    def pull_image(self, index):
-        '''Returns the original image object at index in PIL form
-
-        Note: not using self.__getitem__(), as any transformations passed in
-        could mess up this functionality.
-
-        Argument:
-            index (int): index of img to show
-        Return:
-            gbr image
-        '''        
-        path = self.roidb[index]['image']
-        img = np.array(Image.open(path))[:, :, (2, 1, 0)]
-        
-        return img
+    # def pull_image(self, index):
+    #     '''Returns the original image object at index in PIL form
+    #
+    #     Note: not using self.__getitem__(), as any transformations passed in
+    #     could mess up this functionality.
+    #
+    #     Argument:
+    #         index (int): index of img to show
+    #     Return:
+    #         gbr image
+    #     '''
+    #     path = self.roidb[index]['image']
+    #     img = np.array(Image.open(path))[:, :, (2, 1, 0)]
+    #
+    #     return img
     
     def pull_anno(self, index):
         '''Returns the original annotation of image at index

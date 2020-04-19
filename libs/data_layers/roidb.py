@@ -4,11 +4,12 @@ from __future__ import division
 from __future__ import print_function
 
 import os
-import libs.dataset.datasets as datasets
+import libs.datasets as datasets
 import numpy as np
-from libs.dataset.datasets.factory import get_imdb
-from libs.dataset.datasets.imdb import ROOT_DIR
-# import libs.dataset.datasets.imdb as imdb
+from libs.datasets.factory import get_imdb
+# from libs.datasets.imdb import ROOT_DIR
+from libs.utils.path_config import cfg
+# import libs.datasets.imdb as imdb
 from PIL import Image
 import cv2
 import torch
@@ -110,7 +111,7 @@ def get_output_dir(imdb, weights_filename):
     A canonical path is built using the name from an imdb and a network
     (if not None).
     """
-    outdir = os.path.join(ROOT_DIR, 'detection_output',
+    outdir = os.path.join(cfg.OUTPUT_DIR, 'detection_output',
                           imdb.name)
     if weights_filename is None:
         weights_filename = 'default'

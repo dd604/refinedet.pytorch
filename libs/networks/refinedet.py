@@ -31,7 +31,7 @@ class RefineDet(nn.Module):
         self.anchor_layer = AnchorBox(self.cfg)
         self.is_batchnorm = False
         # anchors are on cpu, their type will be converted accordingly in later
-        self.anchors = Variable(self.anchor_layer.forward(), volatile=True)
+        self.anchors = Variable(self.anchor_layer.forward(), requires_grad=False)
         # vgg backbone
         self.base = None
         self.extra = None
@@ -92,7 +92,7 @@ class RefineDet(nn.Module):
     def _init_weights(self):
         print('Initializing weights...')
         # initialize newly added layers' weights with xavier method
-        pdb.set_trace()
+        #pdb.set_trace()
         self.extra.apply(weights_init)
         self.pyramid_layer1.apply(weights_init)
         self.pyramid_layer2.apply(weights_init)
@@ -177,7 +177,8 @@ class RefineDet(nn.Module):
         odm_loss_loc, odm_loss_conf = self.odm_loss_layer(
             self.odm_predictions, self.refined_anchors,
             self.ignore_flags_refined_anchor, targets)
-        
+        # odm_loss_loc = torch.Tensor([1])
+        # odm_loss_conf = torch.Tensor([1])
         return arm_loss_loc, arm_loss_conf, odm_loss_loc, odm_loss_conf
     
     def _get_forward_features(self, x):
@@ -197,7 +198,7 @@ class RefineDet(nn.Module):
         # Adjust anchors with arm_loc.
         # The refined_pirors is better to be considered as predicted ROIs,
         # like Faster RCNN in a sence.
-        self.refined_anchors = refine_anchors(arm_loc.data, self.anchors.data,
+        self.refined_anchors = refine_anchors(arm_loc.data.detach(), self.anchors.data.detach(),
                                               self.variance)
         self.ignore_flags_refined_anchor = arm_score[:, :, 1] < self.pos_anchor_threshold
         
@@ -284,7 +285,7 @@ class RefineDet(nn.Module):
         conf_layers = []
         num_classes = self.num_classes
         # internal_channels
-        for k in xrange(len(self.layers_out_channels)):
+        for k in range(len(self.layers_out_channels)):
             loc_layers += [nn.Conv2d(self.internal_channels,
                                      self.cfg['mbox'][k] * 4,
                                      kernel_size=3, padding=1)]

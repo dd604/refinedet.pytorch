@@ -11,9 +11,9 @@ import torch
 import torch.nn as nn
 
 
-from resnet101 import resnet101, ExtraResModule, is_batchnorm, \
+from .resnet101 import resnet101, ExtraResModule, is_batchnorm, \
     layers_out_channels
-from refinedet import RefineDet as _RefineDet
+from .refinedet import RefineDet as _RefineDet
 
 from libs.utils.net_utils import L2Norm
 import pdb
