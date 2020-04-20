@@ -1,9 +1,7 @@
 
-job_spec.json
+*.json
 run.sh
-# data
 data/
-#voc_detections
 detection_output/
 voc_detections/
 output/
@@ -11,12 +9,16 @@ unit_test/
 
 nohup*
 *.out
+*.pyc
+*.swp
+*.swo
+*.swn
 # Byte-compiled / optimized / DLL files
 __pycache__/
 #DS_Store
 .DS_Store
 # dev stuff
-*.ipynb
+demo/.ipynb_checkpoints/
 # pycharm
 .idea/
 # pylint
